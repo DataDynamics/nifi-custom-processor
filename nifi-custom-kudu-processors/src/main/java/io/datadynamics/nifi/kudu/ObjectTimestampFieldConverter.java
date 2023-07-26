@@ -16,9 +16,9 @@ public class ObjectTimestampFieldConverter implements FieldConverter<Object, Tim
     /**
      * Convert Object field to java.sql.Timestamp using optional format supported in DateTimeFormatter
      *
-     * @param field   Field can be null or a supported input type
+     * @param field Field can be null or a supported input type
      * @param pattern Format pattern optional for parsing
-     * @param name    Field name for tracking
+     * @param name Field name for tracking
      * @return Timestamp or null when input field is null or empty string
      * @throws IllegalTypeConversionException Thrown on parsing failures or unsupported types of input fields
      */

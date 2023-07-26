@@ -17,8 +17,19 @@
 package io.datadynamics.nifi.kudu;
 
 import org.apache.nifi.serialization.SimpleRecordSchema;
-import org.apache.nifi.serialization.record.*;
-import org.apache.nifi.serialization.record.type.*;
+import org.apache.nifi.serialization.record.DataType;
+import org.apache.nifi.serialization.record.MapRecord;
+import org.apache.nifi.serialization.record.Record;
+import org.apache.nifi.serialization.record.RecordField;
+import org.apache.nifi.serialization.record.RecordFieldType;
+import org.apache.nifi.serialization.record.RecordSchema;
+import org.apache.nifi.serialization.record.type.ArrayDataType;
+import org.apache.nifi.serialization.record.type.ChoiceDataType;
+import org.apache.nifi.serialization.record.type.DecimalDataType;
+import org.apache.nifi.serialization.record.type.EnumDataType;
+import org.apache.nifi.serialization.record.type.MapDataType;
+import org.apache.nifi.serialization.record.type.RecordDataType;
+import org.apache.nifi.serialization.record.util.DataTypeSet;
 import org.apache.nifi.serialization.record.util.IllegalTypeConversionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,26 +39,52 @@ import java.io.Reader;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.sql.Blob;
+import java.sql.Clob;
 import java.sql.Date;
-import java.sql.*;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.*;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.Set;
+import java.util.TimeZone;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
+
 public class DataTypeUtils {
     private static final Logger logger = LoggerFactory.getLogger(DataTypeUtils.class);
 
     // Regexes for parsing Floating-Point numbers
-    private static final String OptionalSign = "[\\-\\+]?";
+    private static final String OptionalSign  = "[\\-\\+]?";
     private static final String Infinity = "(Infinity)";
     private static final String NotANumber = "(NaN)";
 
@@ -58,11 +95,11 @@ public class DataTypeUtils {
     private static final String Base10Exponent = "[eE]" + OptionalSign + Base10Digits;
     private static final String OptionalBase10Exponent = "(" + Base10Exponent + ")?";
 
-    private static final String doubleRegex =
+    private static final String  doubleRegex =
             OptionalSign +
                     "(" +
                     Infinity + "|" +
-                    NotANumber + "|" +
+                    NotANumber + "|"+
                     "(" + Base10Digits + OptionalBase10Decimal + ")" + "|" +
                     "(" + Base10Digits + OptionalBase10Decimal + Base10Exponent + ")" + "|" +
                     "(" + Base10Decimal + OptionalBase10Exponent + ")" +
@@ -175,8 +212,10 @@ public class DataTypeUtils {
                 return toTime(value, timeFormat, fieldName);
             case TIMESTAMP:
                 return toTimestamp(value, timestampFormat, fieldName);
+            case UUID:
+                return toUUID(value);
             case ARRAY:
-                return toArray(value, fieldName, ((ArrayDataType) dataType).getElementType(), charset);
+                return toArray(value, fieldName, ((ArrayDataType)dataType).getElementType(), charset);
             case MAP:
                 return toMap(value, fieldName);
             case RECORD:
@@ -198,10 +237,48 @@ public class DataTypeUtils {
         return null;
     }
 
+    private static Object toUUID(Object value) {
+        if (value == null) {
+            throw new IllegalTypeConversionException("Null values cannot be converted to a UUID");
+        }
+
+        if (value instanceof String) {
+            try {
+                return UUID.fromString((String)value);
+            } catch (Exception ex) {
+                throw new IllegalTypeConversionException(String.format("Could not parse %s into a UUID", value), ex);
+            }
+        } else if (value instanceof byte[]) {
+            return uuidFromBytes((byte[])value);
+        } else if (value instanceof Byte[]) {
+            Byte[] array = (Byte[])value;
+            byte[] converted = new byte[array.length];
+            for (int x = 0; x < array.length; x++) {
+                converted[x] = array[x];
+            }
+            return uuidFromBytes(converted);
+        } else {
+            throw new IllegalTypeConversionException(value.getClass() + " cannot be converted into a UUID");
+        }
+    }
+
+    private static UUID uuidFromBytes(byte[] bytes) {
+        try {
+            ByteBuffer buffer = ByteBuffer.wrap(bytes);
+            return new UUID(buffer.getLong(), buffer.getLong());
+        } catch (Exception ex) {
+            throw new IllegalTypeConversionException("Could not convert bytes to UUID");
+        }
+    }
+
     public static boolean isCompatibleDataType(final Object value, final DataType dataType) {
+        return isCompatibleDataType(value, dataType, false);
+    }
+
+    public static boolean isCompatibleDataType(final Object value, final DataType dataType, final boolean strict) {
         switch (dataType.getFieldType()) {
             case ARRAY:
-                return isArrayTypeCompatible(value, ((ArrayDataType) dataType).getElementType());
+                return isArrayTypeCompatible(value, ((ArrayDataType) dataType).getElementType(), strict);
             case BIGINT:
                 return isBigIntTypeCompatible(value);
             case BOOLEAN:
@@ -224,7 +301,7 @@ public class DataTypeUtils {
                 return isLongTypeCompatible(value);
             case RECORD: {
                 final RecordSchema schema = ((RecordDataType) dataType).getChildSchema();
-                return isRecordTypeCompatible(schema, value);
+                return isRecordTypeCompatible(schema, value, strict);
             }
             case SHORT:
                 return isShortTypeCompatible(value);
@@ -509,43 +586,17 @@ public class DataTypeUtils {
                 map = (Map<String, Object>) value;
             } else {
                 final Map<?, ?> m = (Map<?, ?>) value;
-                map = new HashMap<>(m.size());
+                map = new LinkedHashMap<>(m.size());
                 m.forEach((k, v) -> map.put(k == null ? null : k.toString(), v));
             }
             return inferRecordDataType(map);
-//            // Check if all types are the same.
-//            if (map.isEmpty()) {
-//                return RecordFieldType.MAP.getMapDataType(RecordFieldType.STRING.getDataType());
-//            }
-//
-//            Object valueFromMap = null;
-//            Class<?> valueClass = null;
-//            for (final Object val : map.values()) {
-//                if (val == null) {
-//                    continue;
-//                }
-//
-//                valueFromMap = val;
-//                final Class<?> currentValClass = val.getClass();
-//                if (valueClass == null) {
-//                    valueClass = currentValClass;
-//                } else {
-//                    // If we have two elements that are of different types, then we cannot have a Map. Must be a Record.
-//                    if (valueClass != currentValClass) {
-//                        return inferRecordDataType(map);
-//                    }
-//                }
-//            }
-//
-//            // All values appear to be of the same type, so assume that it's a map.
-//            final DataType elementDataType = inferDataType(valueFromMap, RecordFieldType.STRING.getDataType());
-//            return RecordFieldType.MAP.getMapDataType(elementDataType);
         }
+
         if (value.getClass().isArray()) {
             DataType mergedDataType = null;
 
             int length = Array.getLength(value);
-            for (int index = 0; index < length; index++) {
+            for(int index = 0; index < length; index++) {
                 final DataType inferredDataType = inferDataType(Array.get(value, index), RecordFieldType.STRING.getDataType());
                 mergedDataType = mergeDataTypes(mergedDataType, inferredDataType);
             }
@@ -556,8 +607,9 @@ public class DataTypeUtils {
 
             return RecordFieldType.ARRAY.getArrayDataType(mergedDataType);
         }
+
         if (value instanceof Iterable) {
-            final Iterable iterable = (Iterable<?>) value;
+            final Iterable<?> iterable = (Iterable<?>) value;
 
             DataType mergedDataType = null;
             for (final Object arrayValue : iterable) {
@@ -592,12 +644,12 @@ public class DataTypeUtils {
 
     /**
      * Check if the given record structured object compatible with the schema.
-     *
      * @param schema record schema, schema validation will not be performed if schema is null
-     * @param value  the record structured object, i.e. Record or Map
+     * @param value the record structured object, i.e. Record or Map
+     * @param strict check for a strict match, i.e. all fields in the record should have a corresponding entry in the schema
      * @return True if the object is compatible with the schema
      */
-    private static boolean isRecordTypeCompatible(RecordSchema schema, Object value) {
+    private static boolean isRecordTypeCompatible(RecordSchema schema, Object value, boolean strict) {
 
         if (value == null) {
             return false;
@@ -609,6 +661,14 @@ public class DataTypeUtils {
 
         if (schema == null) {
             return true;
+        }
+
+        if (strict) {
+            if (value instanceof Record) {
+                if (!schema.getFieldNames().containsAll(((Record)value).getRawFieldNames())) {
+                    return false;
+                }
+            }
         }
 
         for (final RecordField childField : schema.getFields()) {
@@ -627,7 +687,7 @@ public class DataTypeUtils {
                 continue; // consider compatible
             }
 
-            if (!isCompatibleDataType(childValue, childField.getDataType())) {
+            if (!isCompatibleDataType(childValue, childField.getDataType(), strict)) {
                 return false;
             }
         }
@@ -665,8 +725,22 @@ public class DataTypeUtils {
             return dest;
         }
 
+        if (value instanceof UUID) {
+            UUID uuid = (UUID)value;
+            ByteBuffer buffer = ByteBuffer.allocate(16);
+            buffer.putLong(uuid.getMostSignificantBits());
+            buffer.putLong(uuid.getLeastSignificantBits());
+            Byte[] result = new Byte[16];
+            byte[] array = buffer.array();
+            for (int index = 0; index < array.length; index++) {
+                result[index] = array[index];
+            }
+
+            return result;
+        }
+
         if (value instanceof List) {
-            final List<?> list = (List<?>) value;
+            final List<?> list = (List<?>)value;
             return list.toArray();
         }
 
@@ -674,7 +748,7 @@ public class DataTypeUtils {
             if (value instanceof Blob) {
                 Blob blob = (Blob) value;
                 long rawBlobLength = blob.length();
-                if (rawBlobLength > Integer.MAX_VALUE) {
+                if(rawBlobLength > Integer.MAX_VALUE) {
                     throw new IllegalTypeConversionException("Value of type " + value.getClass() + " too large to convert to Object Array for field " + fieldName);
                 }
                 int blobLength = (int) rawBlobLength;
@@ -695,6 +769,10 @@ public class DataTypeUtils {
     }
 
     public static boolean isArrayTypeCompatible(final Object value, final DataType elementDataType) {
+        return isArrayTypeCompatible(value, elementDataType, false);
+    }
+
+    public static boolean isArrayTypeCompatible(final Object value, final DataType elementDataType, final boolean strict) {
         if (value == null) {
             return false;
         }
@@ -702,7 +780,7 @@ public class DataTypeUtils {
         if (value instanceof Object[]) {
             for (Object o : ((Object[]) value)) {
                 // Check each element to ensure its type is the same or can be coerced (if need be)
-                if (!isCompatibleDataType(o, elementDataType)) {
+                if (!isCompatibleDataType(o, elementDataType, strict)) {
                     return false;
                 }
             }
@@ -767,8 +845,7 @@ public class DataTypeUtils {
     /**
      * Creates a native Java object from a given object of a specified type. Non-scalar (complex, nested, etc.) data types are processed iteratively/recursively, such that all
      * included objects are native Java objects, rather than Record API objects or implementation-specific objects.
-     *
-     * @param value    The object to be converted
+     * @param value The object to be converted
      * @param dataType The type of the provided object
      * @return An object representing a native Java conversion of the given input object
      */
@@ -800,10 +877,10 @@ public class DataTypeUtils {
                     Record nestedRecord = (Record) fieldValue;
                     recordMap.put(fieldName, convertRecordFieldtoObject(nestedRecord, fieldDataType));
                 } else if (fieldDataType instanceof MapDataType) {
-                    recordMap.put(fieldName, convertRecordMapToJavaMap((Map) fieldValue, ((MapDataType) fieldDataType).getValueType()));
+                    recordMap.put(fieldName, convertRecordMapToJavaMap((Map) fieldValue, ((MapDataType)fieldDataType).getValueType()));
 
                 } else if (fieldDataType instanceof ArrayDataType) {
-                    recordMap.put(fieldName, convertRecordArrayToJavaArray((Object[]) fieldValue, ((ArrayDataType) fieldDataType).getElementType()));
+                    recordMap.put(fieldName, convertRecordArrayToJavaArray((Object[])fieldValue, ((ArrayDataType) fieldDataType).getElementType()));
                 } else {
                     throw new IllegalTypeConversionException("Cannot convert value [" + fieldValue + "] of type " + fieldDataType.toString()
                             + " to Map for field " + fieldName + " because the type is not supported");
@@ -877,13 +954,13 @@ public class DataTypeUtils {
         }
 
         if (value instanceof byte[]) {
-            return new String((byte[]) value, charset);
+            return new String((byte[])value, charset);
         }
 
         if (value instanceof Byte[]) {
             Byte[] src = (Byte[]) value;
             byte[] dest = new byte[src.length];
-            for (int i = 0; i < src.length; i++) {
+            for(int i=0;i<src.length;i++) {
                 dest[i] = src[i];
             }
             return new String(dest, charset);
@@ -1006,7 +1083,7 @@ public class DataTypeUtils {
     }
 
     private static Object toEnum(Object value, EnumDataType dataType, String fieldName) {
-        if (dataType.getEnums() != null && dataType.getEnums().contains(value)) {
+        if(dataType.getEnums() != null && dataType.getEnums().contains(value)) {
             return value.toString();
         }
         throw new IllegalTypeConversionException("Cannot convert value " + value + " of type " + dataType.toString() + " for field " + fieldName);
@@ -1022,7 +1099,7 @@ public class DataTypeUtils {
         }
 
         if (value instanceof java.util.Date) {
-            java.util.Date _temp = (java.util.Date) value;
+            java.util.Date _temp = (java.util.Date)value;
             return new Date(_temp.getTime());
         }
 
@@ -1061,7 +1138,7 @@ public class DataTypeUtils {
      * Get Date Time Formatter using Zone Identifier
      *
      * @param pattern Date Format Pattern
-     * @param zoneId  Time Zone Identifier
+     * @param zoneId Time Zone Identifier
      * @return Date Time Formatter or null when provided pattern is null
      */
     public static DateTimeFormatter getDateTimeFormatter(final String pattern, final ZoneId zoneId) {
@@ -1074,7 +1151,7 @@ public class DataTypeUtils {
     /**
      * Convert value to Local Date with support for conversion from numbers or formatted strings
      *
-     * @param value     Value to be converted
+     * @param value Value to be converted
      * @param formatter Supplier for Date Time Formatter can be null when string parsing is not necessary
      * @param fieldName Field Name for value to be converted
      * @return Local Date or null when value to be converted is null
@@ -1113,11 +1190,11 @@ public class DataTypeUtils {
 
     /**
      * Convert value to java.sql.Date using java.time.LocalDate parsing and conversion from DateFormat to DateTimeFormatter
-     * <p>
+     *
      * Transitional method supporting conversion from legacy java.text.DateFormat to java.time.DateTimeFormatter
      *
-     * @param value     Value object to be converted
-     * @param format    Supplier function for java.text.DateFormat when necessary for parsing
+     * @param value Value object to be converted
+     * @param format Supplier function for java.text.DateFormat when necessary for parsing
      * @param fieldName Field name being parsed
      * @return java.sql.Date or null when value is null
      */
@@ -1136,7 +1213,7 @@ public class DataTypeUtils {
     /**
      * Parse Local Date from String using Date Time Formatter when supplied
      *
-     * @param value     String not null containing either formatted string or number of epoch milliseconds
+     * @param value String not null containing either formatted string or number of epoch milliseconds
      * @param formatter Supplier for Date Time Formatter
      * @return Local Date or null when provided value is empty
      */
@@ -1292,7 +1369,7 @@ public class DataTypeUtils {
     /**
      * Get Date Format using specified Time Zone to adjust Date during processing
      *
-     * @param pattern    Date Format Pattern used for new SimpleDateFormat()
+     * @param pattern Date Format Pattern used for new SimpleDateFormat()
      * @param timeZoneId Time Zone Identifier used for TimeZone.getTimeZone()
      * @return Date Format or null when input parameters not provided
      */
@@ -1326,7 +1403,7 @@ public class DataTypeUtils {
         }
 
         if (value instanceof java.util.Date) {
-            return new Timestamp(((java.util.Date) value).getTime());
+            return new Timestamp(((java.util.Date)value).getTime());
         }
 
         if (value instanceof Number) {
@@ -1351,10 +1428,7 @@ public class DataTypeUtils {
                 }
 
                 final java.util.Date utilDate = dateFormat.parse(string);
-                Timestamp timestamp = new Timestamp(utilDate.getTime());
-                LocalDateTime localDateTime = timestamp.toLocalDateTime();
-                LocalDateTime plus = localDateTime.plus(Duration.ofHours(9));
-                return Timestamp.valueOf(plus);
+                return new Timestamp(utilDate.getTime());
             } catch (final ParseException e) {
                 final DateFormat dateFormat = format.get();
                 final String formatDescription;
@@ -1899,33 +1973,34 @@ public class DataTypeUtils {
                 return widerType.get();
             }
 
-            final Set<DataType> possibleTypes = new LinkedHashSet<>();
-            if (thisDataType.getFieldType() == RecordFieldType.CHOICE) {
-                possibleTypes.addAll(((ChoiceDataType) thisDataType).getPossibleSubTypes());
-            } else {
-                possibleTypes.add(thisDataType);
-            }
+            final DataTypeSet dataTypeSet = new DataTypeSet();
+            dataTypeSet.add(thisDataType);
+            dataTypeSet.add(otherDataType);
 
-            if (otherDataType.getFieldType() == RecordFieldType.CHOICE) {
-                possibleTypes.addAll(((ChoiceDataType) otherDataType).getPossibleSubTypes());
-            } else {
-                possibleTypes.add(otherDataType);
-            }
-
-            ArrayList<DataType> possibleChildTypes = new ArrayList<>(possibleTypes);
-            Collections.sort(possibleChildTypes, Comparator.comparing(DataType::getFieldType));
+            final List<DataType> possibleChildTypes = dataTypeSet.getTypes();
+            possibleChildTypes.sort(Comparator.comparing(DataType::getFieldType));
 
             return RecordFieldType.CHOICE.getChoiceDataType(possibleChildTypes);
         }
     }
 
     public static Optional<DataType> getWiderType(final DataType thisDataType, final DataType otherDataType) {
+        if (thisDataType == null) {
+            return Optional.ofNullable(otherDataType);
+        }
+        if (otherDataType == null) {
+            return Optional.of(thisDataType);
+        }
+
         final RecordFieldType thisFieldType = thisDataType.getFieldType();
         final RecordFieldType otherFieldType = otherDataType.getFieldType();
 
         final int thisIntTypeValue = getIntegerTypeValue(thisFieldType);
         final int otherIntTypeValue = getIntegerTypeValue(otherFieldType);
-        if (thisIntTypeValue > -1 && otherIntTypeValue > -1) {
+        final boolean thisIsInt = thisIntTypeValue > -1;
+        final boolean otherIsInt = otherIntTypeValue > -1;
+
+        if (thisIsInt && otherIsInt) {
             if (thisIntTypeValue > otherIntTypeValue) {
                 return Optional.of(thisDataType);
             }
@@ -1933,25 +2008,37 @@ public class DataTypeUtils {
             return Optional.of(otherDataType);
         }
 
+        final boolean otherIsDecimal = isDecimalType(otherFieldType);
+
         switch (thisFieldType) {
+            case BYTE:
+            case SHORT:
+            case INT:
+            case LONG:
+                if (otherIsDecimal) {
+                    return Optional.of(otherDataType);
+                }
+                break;
             case FLOAT:
-                if (otherFieldType == RecordFieldType.DOUBLE) {
+                if (otherFieldType == RecordFieldType.DOUBLE || otherFieldType == RecordFieldType.DECIMAL) {
                     return Optional.of(otherDataType);
-                } else if (otherFieldType == RecordFieldType.DECIMAL) {
-                    return Optional.of(otherDataType);
+                }
+                if (otherFieldType == RecordFieldType.BYTE || otherFieldType == RecordFieldType.SHORT || otherFieldType == RecordFieldType.INT || otherFieldType == RecordFieldType.LONG) {
+                    return Optional.of(thisDataType);
                 }
                 break;
             case DOUBLE:
-                if (otherFieldType == RecordFieldType.FLOAT) {
-                    return Optional.of(thisDataType);
-                } else if (otherFieldType == RecordFieldType.DECIMAL) {
+                if (otherFieldType == RecordFieldType.DECIMAL) {
                     return Optional.of(otherDataType);
+                }
+                if (otherFieldType == RecordFieldType.BYTE || otherFieldType == RecordFieldType.SHORT || otherFieldType == RecordFieldType.INT || otherFieldType == RecordFieldType.LONG
+                        || otherFieldType == RecordFieldType.FLOAT) {
+
+                    return Optional.of(thisDataType);
                 }
                 break;
             case DECIMAL:
-                if (otherFieldType == RecordFieldType.DOUBLE) {
-                    return Optional.of(thisDataType);
-                } else if (otherFieldType == RecordFieldType.FLOAT) {
+                if (otherFieldType == RecordFieldType.DOUBLE || otherFieldType == RecordFieldType.FLOAT || otherIsInt) {
                     return Optional.of(thisDataType);
                 } else if (otherFieldType == RecordFieldType.DECIMAL) {
                     final DecimalDataType thisDecimalDataType = (DecimalDataType) thisDataType;
@@ -1963,18 +2050,30 @@ public class DataTypeUtils {
                 }
                 break;
             case CHAR:
+            case UUID:
                 if (otherFieldType == RecordFieldType.STRING) {
                     return Optional.of(otherDataType);
                 }
                 break;
             case STRING:
-                if (otherFieldType == RecordFieldType.CHAR) {
+                if (otherFieldType == RecordFieldType.CHAR || otherFieldType == RecordFieldType.UUID) {
                     return Optional.of(thisDataType);
                 }
                 break;
         }
 
         return Optional.empty();
+    }
+
+    private static boolean isDecimalType(final RecordFieldType fieldType) {
+        switch (fieldType) {
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static int getIntegerTypeValue(final RecordFieldType fieldType) {
@@ -2059,8 +2158,6 @@ public class DataTypeUtils {
                 return RecordFieldType.BOOLEAN.getDataType();
             case Types.TINYINT:
                 return RecordFieldType.BYTE.getDataType();
-            case Types.CHAR:
-                return RecordFieldType.CHAR.getDataType();
             case Types.DATE:
                 return RecordFieldType.DATE.getDataType();
             case Types.DOUBLE:
@@ -2073,6 +2170,7 @@ public class DataTypeUtils {
                 return RecordFieldType.INT.getDataType();
             case Types.SMALLINT:
                 return RecordFieldType.SHORT.getDataType();
+            case Types.CHAR:
             case Types.VARCHAR:
             case Types.LONGNVARCHAR:
             case Types.LONGVARCHAR:
@@ -2125,7 +2223,7 @@ public class DataTypeUtils {
     }
 
     public static Charset getCharset(String charsetName) {
-        if (charsetName == null) {
+        if(charsetName == null) {
             return StandardCharsets.UTF_8;
         } else {
             return Charset.forName(charsetName);
@@ -2137,6 +2235,7 @@ public class DataTypeUtils {
      * decided based on the numerical value of the input and the significant bytes used in the float.
      *
      * @param value The value to check.
+     *
      * @return True in case of the value meets the conditions, false otherwise.
      */
     public static boolean isIntegerFitsToFloat(final Object value) {
@@ -2153,6 +2252,7 @@ public class DataTypeUtils {
      * decided based on the numerical value of the input and the significant bytes used in the float.
      *
      * @param value The value to check.
+     *
      * @return True in case of the value meets the conditions, false otherwise.
      */
     public static boolean isLongFitsToFloat(final Object value) {
@@ -2169,6 +2269,7 @@ public class DataTypeUtils {
      * decided based on the numerical value of the input and the significant bytes used in the double.
      *
      * @param value The value to check.
+     *
      * @return True in case of the value meets the conditions, false otherwise.
      */
     public static boolean isLongFitsToDouble(final Object value) {
@@ -2185,6 +2286,7 @@ public class DataTypeUtils {
      * decided based on the numerical value of the input and the significant bytes used in the float.
      *
      * @param value The value to check.
+     *
      * @return True in case of the value meets the conditions, false otherwise.
      */
     public static boolean isBigIntFitsToFloat(final Object value) {
@@ -2201,6 +2303,7 @@ public class DataTypeUtils {
      * decided based on the numerical value of the input and the significant bytes used in the double.
      *
      * @param value The value to check.
+     *
      * @return True in case of the value meets the conditions, false otherwise.
      */
     public static boolean isBigIntFitsToDouble(final Object value) {
@@ -2221,6 +2324,7 @@ public class DataTypeUtils {
      * </p>
      *
      * @param value The value to check.
+     *
      * @return True in case of the double value fits to float data type.
      */
     public static boolean isDoubleWithinFloatInterval(final Object value) {
@@ -2236,8 +2340,9 @@ public class DataTypeUtils {
     /**
      * Checks if an incoming value satisfies the requirements of a given (numeric) type or any of it's narrow data type.
      *
-     * @param value     Incoming value.
+     * @param value Incoming value.
      * @param fieldType The expected field type.
+     *
      * @return Returns true if the incoming value satisfies the data type of any of it's narrow data types. Otherwise returns false. Only numeric data types are supported.
      */
     public static boolean isFittingNumberType(final Object value, final RecordFieldType fieldType) {

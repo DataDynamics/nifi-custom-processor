@@ -21,7 +21,6 @@ import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
 import org.apache.kudu.client.*;
-import org.apache.kudu.shaded.com.google.common.annotations.VisibleForTesting;
 import org.apache.nifi.annotation.lifecycle.OnStopped;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyDescriptor.Builder;
@@ -30,6 +29,7 @@ import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.expression.AttributeExpression;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.kerberos.KerberosCredentialsService;
+import org.apache.nifi.kerberos.KerberosUserService;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.util.StandardValidators;
@@ -41,9 +41,9 @@ import org.apache.nifi.serialization.record.DataType;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.RecordFieldType;
 import org.apache.nifi.serialization.record.type.DecimalDataType;
+import org.apache.nifi.serialization.record.util.DataTypeUtils;
 import org.apache.nifi.util.StringUtils;
 
-import javax.security.auth.login.LoginException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -61,7 +61,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
 
     static final PropertyDescriptor KUDU_MASTERS = new Builder()
             .name("Kudu Masters")
-            .description("Comma separated addresses of the Kudu masters to connect to.")
+            .description("연결할 Kudu Master 주소이며 쉼표로 나열할 수 있습니다.")
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
@@ -73,6 +73,14 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .description("Specifies the Kerberos Credentials to use for authentication")
             .required(false)
             .identifiesControllerService(KerberosCredentialsService.class)
+            .build();
+
+    static final PropertyDescriptor KERBEROS_USER_SERVICE = new PropertyDescriptor.Builder()
+            .name("kerberos-user-service")
+            .displayName("Kerberos User Service")
+            .description("Specifies the Kerberos User Controller Service that should be used for authenticating with Kerberos")
+            .identifiesControllerService(KerberosUserService.class)
+            .required(false)
             .build();
 
     static final PropertyDescriptor KERBEROS_PRINCIPAL = new PropertyDescriptor.Builder()
@@ -114,12 +122,15 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
 
-    // private static final int DEFAULT_WORKER_COUNT = 2 * Runtime.getRuntime().availableProcessors();
-    private static final int DEFAULT_WORKER_COUNT = 2;
+    /**
+     * 기본 Kudu Client의 Worker Thread는 Core의 개수만큼 설정이 되므로 baremetal에서는 이 값을 낮춰서 설정해야 한다.
+     */
+    private static final int DEFAULT_WORKER_COUNT = Runtime.getRuntime().availableProcessors();
+
     static final PropertyDescriptor WORKER_COUNT = new Builder()
             .name("worker-count")
-            .displayName("Kudu Client의 워커 쓰레드의 개수")
-            .description("Kudu Client가 읽기 및 쓰기 작업을 수행할때 사용하는 워커 쓰레드의 최대 개수. 원 기능은 CPU Core 개수의 2배수로 설정된다. 하나의 NiFi Flow에서 과도하고 많은 이 Kudu 모듈을 사용하는 경우 수많은 쓰레드가 생성되어 JVM이 정상 동작할 수 없는 상태가 될 수 있음. 따라서 Queue의 유입되는 양, Kudu 오퍼레이션의 성능, 파일의 크기에 따라서 이 개수를 조정하도록 함.")
+            .displayName("Kudu Client Worker 쓰레드 개수")
+            .description("Kudu 클라이언트 읽기 및 쓰기 작업을 처리하는 최대 작업자 스레드 수입니다. 기본적으로 사용 가능한 프로세서 수입니다.")
             .required(true)
             .defaultValue(Integer.toString(DEFAULT_WORKER_COUNT))
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
@@ -160,19 +171,26 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
         }
     }
 
-    protected void createKerberosUserAndOrKuduClient(ProcessContext context) throws LoginException {
-        final KerberosCredentialsService credentialsService = context.getProperty(KERBEROS_CREDENTIALS_SERVICE).asControllerService(KerberosCredentialsService.class);
-        final String kerberosPrincipal = context.getProperty(KERBEROS_PRINCIPAL).evaluateAttributeExpressions().getValue();
-        final String kerberosPassword = context.getProperty(KERBEROS_PASSWORD).getValue();
-
-        if (credentialsService != null) {
-            kerberosUser = createKerberosKeytabUser(credentialsService.getPrincipal(), credentialsService.getKeytab(), context);
-            kerberosUser.login(); // login creates the kudu client as well
-        } else if (!StringUtils.isBlank(kerberosPrincipal) && !StringUtils.isBlank(kerberosPassword)) {
-            kerberosUser = createKerberosPasswordUser(kerberosPrincipal, kerberosPassword, context);
-            kerberosUser.login(); // login creates the kudu client as well
-        } else {
+    protected void createKerberosUserAndOrKuduClient(ProcessContext context) {
+        final KerberosUserService kerberosUserService = context.getProperty(KERBEROS_USER_SERVICE).asControllerService(KerberosUserService.class);
+        if (kerberosUserService != null) {
+            kerberosUser = kerberosUserService.createKerberosUser();
+            kerberosUser.login();
             createKuduClient(context);
+        } else {
+            final KerberosCredentialsService credentialsService = context.getProperty(KERBEROS_CREDENTIALS_SERVICE).asControllerService(KerberosCredentialsService.class);
+            final String kerberosPrincipal = context.getProperty(KERBEROS_PRINCIPAL).evaluateAttributeExpressions().getValue();
+            final String kerberosPassword = context.getProperty(KERBEROS_PASSWORD).getValue();
+
+            if (credentialsService != null) {
+                kerberosUser = createKerberosKeytabUser(credentialsService.getPrincipal(), credentialsService.getKeytab(), context);
+                kerberosUser.login(); // login creates the kudu client as well
+            } else if (!StringUtils.isBlank(kerberosPrincipal) && !StringUtils.isBlank(kerberosPassword)) {
+                kerberosUser = createKerberosPasswordUser(kerberosPrincipal, kerberosPassword, context);
+                kerberosUser.login(); // login creates the kudu client as well
+            } else {
+                createKuduClient(context);
+            }
         }
     }
 
@@ -251,12 +269,13 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
     protected KerberosUser createKerberosKeytabUser(String principal, String keytab, ProcessContext context) {
         return new KerberosKeytabUser(principal, keytab) {
             @Override
-            public synchronized void login() throws LoginException {
-                if (!isLoggedIn()) {
-                    super.login();
-
-                    createKuduClient(context);
+            public synchronized void login() {
+                if (isLoggedIn()) {
+                    return;
                 }
+
+                super.login();
+                createKuduClient(context);
             }
         };
     }
@@ -264,12 +283,13 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
     protected KerberosUser createKerberosPasswordUser(String principal, String password, ProcessContext context) {
         return new KerberosPasswordUser(principal, password) {
             @Override
-            public synchronized void login() throws LoginException {
-                if (!isLoggedIn()) {
-                    super.login();
-
-                    createKuduClient(context);
+            public synchronized void login() {
+                if (isLoggedIn()) {
+                    return;
                 }
+
+                super.login();
+                createKuduClient(context);
             }
         };
     }
@@ -298,12 +318,29 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
         }
 
         final KerberosCredentialsService kerberosCredentialsService = context.getProperty(KERBEROS_CREDENTIALS_SERVICE).asControllerService(KerberosCredentialsService.class);
+        final KerberosUserService kerberosUserService = context.getProperty(KERBEROS_USER_SERVICE).asControllerService(KerberosUserService.class);
 
         if (kerberosCredentialsService != null && (kerberosPrincipalProvided || kerberosPasswordProvided)) {
             results.add(new ValidationResult.Builder()
                     .subject(KERBEROS_CREDENTIALS_SERVICE.getDisplayName())
                     .valid(false)
                     .explanation("kerberos principal/password and kerberos credential service cannot be configured at the same time")
+                    .build());
+        }
+
+        if (kerberosUserService != null && (kerberosPrincipalProvided || kerberosPasswordProvided)) {
+            results.add(new ValidationResult.Builder()
+                    .subject(KERBEROS_USER_SERVICE.getDisplayName())
+                    .valid(false)
+                    .explanation("kerberos principal/password and kerberos user service cannot be configured at the same time")
+                    .build());
+        }
+
+        if (kerberosUserService != null && kerberosCredentialsService != null) {
+            results.add(new ValidationResult.Builder()
+                    .subject(KERBEROS_USER_SERVICE.getDisplayName())
+                    .valid(false)
+                    .explanation("kerberos user service and kerberos credentials service cannot be configured at the same time")
                     .build());
         }
 
@@ -326,7 +363,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
         }
     }
 
-    @VisibleForTesting
     protected void buildPartialRow(Schema schema, PartialRow row, Record record, List<String> fieldNames, boolean ignoreNull, boolean lowercaseFields) {
         for (String recordFieldName : fieldNames) {
             String colName = recordFieldName;

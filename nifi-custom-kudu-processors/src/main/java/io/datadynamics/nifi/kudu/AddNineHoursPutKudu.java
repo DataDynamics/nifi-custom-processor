@@ -17,13 +17,31 @@
 package io.datadynamics.nifi.kudu;
 
 import org.apache.kudu.Schema;
-import org.apache.kudu.client.*;
-import org.apache.nifi.annotation.behavior.*;
+import org.apache.kudu.client.KuduClient;
+import org.apache.kudu.client.KuduException;
+import org.apache.kudu.client.KuduSession;
+import org.apache.kudu.client.KuduTable;
+import org.apache.kudu.client.Operation;
+import org.apache.kudu.client.OperationResponse;
+import org.apache.kudu.client.RowError;
+import org.apache.kudu.client.SessionConfiguration;
+import org.apache.nifi.annotation.behavior.EventDriven;
+import org.apache.nifi.annotation.behavior.InputRequirement;
+import org.apache.nifi.annotation.behavior.RequiresInstanceClassLoading;
+import org.apache.nifi.annotation.behavior.SupportsBatching;
+import org.apache.nifi.annotation.behavior.SystemResource;
+import org.apache.nifi.annotation.behavior.SystemResourceConsideration;
+import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
-import org.apache.nifi.components.*;
+import org.apache.nifi.components.AllowableValue;
+import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyDescriptor.Builder;
+import org.apache.nifi.components.PropertyValue;
+import org.apache.nifi.components.ValidationContext;
+import org.apache.nifi.components.ValidationResult;
+import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
@@ -46,11 +64,20 @@ import org.apache.nifi.serialization.record.RecordSet;
 import javax.security.auth.login.LoginException;
 import java.io.InputStream;
 import java.security.PrivilegedExceptionAction;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.apache.nifi.expression.ExpressionLanguageScope.*;
+import static org.apache.nifi.expression.ExpressionLanguageScope.FLOWFILE_ATTRIBUTES;
+import static org.apache.nifi.expression.ExpressionLanguageScope.NONE;
+import static org.apache.nifi.expression.ExpressionLanguageScope.VARIABLE_REGISTRY;
 
 @SystemResourceConsideration(resource = SystemResource.MEMORY)
 @EventDriven
@@ -72,8 +99,8 @@ public class AddNineHoursPutKudu extends AbstractKuduProcessor {
                     "it will block any subsequent data from be pushed to Kudu as well until the issue is resolved. However, this may be advantageous if a strict ordering is required.");
 
     protected static final PropertyDescriptor TABLE_NAME = new Builder()
-            .name("Table Name")
-            .description("The name of the Kudu Table to put data into")
+            .name("테이블명")
+            .description("데이터를 저장할 Kudu 테이블명")
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
@@ -255,6 +282,7 @@ public class AddNineHoursPutKudu extends AbstractKuduProcessor {
         properties.add(KUDU_MASTERS);
         properties.add(TABLE_NAME);
         properties.add(FAILURE_STRATEGY);
+        properties.add(KERBEROS_USER_SERVICE);
         properties.add(KERBEROS_CREDENTIALS_SERVICE);
         properties.add(KERBEROS_PRINCIPAL);
         properties.add(KERBEROS_PASSWORD);
@@ -399,39 +427,19 @@ public class AddNineHoursPutKudu extends AbstractKuduProcessor {
                 final RecordSet recordSet = recordReader.createRecordSet();
                 KuduTable kuduTable = kuduClient.openTable(tableName);
 
+                // Get the first record so that we can evaluate the Kudu table for Schema drift.
+                Record record = recordSet.next();
+
                 // If handleSchemaDrift is true, check for any missing columns and alter the Kudu table to add them.
                 if (handleSchemaDrift) {
-                    final Schema schema = kuduTable.getSchema();
-                    final List<RecordField> missing = recordReader.getSchema().getFields().stream()
-                            .filter(field -> !schema.hasColumn(lowercaseFields ? field.getFieldName().toLowerCase() : field.getFieldName()))
-                            .collect(Collectors.toList());
+                    final boolean driftDetected = handleSchemaDrift(kuduTable, kuduClient, flowFile, record, lowercaseFields);
 
-                    if (!missing.isEmpty()) {
-                        getLogger().info("adding {} columns to table '{}' to handle schema drift", missing.size(), tableName);
-
-                        // Add each column one at a time to avoid failing if some of the missing columns
-                        // we created by a concurrent thread or application attempting to handle schema drift.
-                        for (final RecordField field : missing) {
-                            try {
-                                final String columnName = lowercaseFields ? field.getFieldName().toLowerCase() : field.getFieldName();
-                                kuduClient.alterTable(tableName, getAddNullableColumnStatement(columnName, field.getDataType()));
-                            } catch (final KuduException e) {
-                                // Ignore the exception if the column already exists due to concurrent
-                                // threads or applications attempting to handle schema drift.
-                                if (e.getStatus().isAlreadyPresent()) {
-                                    getLogger().info("Column already exists in table '{}' while handling schema drift", tableName);
-                                } else {
-                                    throw new ProcessException(e);
-                                }
-                            }
-                        }
-
+                    if (driftDetected) {
                         // Re-open the table to get the new schema.
                         kuduTable = kuduClient.openTable(tableName);
                     }
                 }
 
-                Record record = recordSet.next();
                 recordReaderLoop: while (record != null) {
                     final OperationType operationType = operationTypeFunction.apply(record);
 
@@ -507,6 +515,67 @@ public class AddNineHoursPutKudu extends AbstractKuduProcessor {
                 flowFileFailures.put(flowFile, ex);
             }
         }
+    }
+
+    private boolean handleSchemaDrift(final KuduTable kuduTable, final KuduClient kuduClient, final FlowFile flowFile, final Record record, final boolean lowercaseFields) {
+        if (record == null) {
+            getLogger().debug("No Record to evaluate schema drift against for {}", flowFile);
+            return false;
+        }
+
+        final String tableName = kuduTable.getName();
+        final Schema schema = kuduTable.getSchema();
+
+        final List<RecordField> recordFields;
+        if (dataRecordPath == null) {
+            recordFields = record.getSchema().getFields();
+        } else {
+            final RecordPathResult recordPathResult = dataRecordPath.evaluate(record);
+            final List<FieldValue> fieldValues =  recordPathResult.getSelectedFields().collect(Collectors.toList());
+
+            recordFields = new ArrayList<>();
+            for (final FieldValue fieldValue : fieldValues) {
+                final RecordField recordField = fieldValue.getField();
+                if (recordField.getDataType().getFieldType() == RecordFieldType.RECORD) {
+                    final Object value = fieldValue.getValue();
+                    if (value instanceof Record) {
+                        recordFields.addAll(((Record) value).getSchema().getFields());
+                    }
+                } else {
+                    recordFields.add(recordField);
+                }
+            }
+        }
+
+        final List<RecordField> missing = recordFields.stream()
+                .filter(field -> !schema.hasColumn(lowercaseFields ? field.getFieldName().toLowerCase() : field.getFieldName()))
+                .collect(Collectors.toList());
+
+        if (missing.isEmpty()) {
+            getLogger().debug("No schema drift detected for {}", flowFile);
+            return false;
+        }
+
+        getLogger().info("Adding {} columns to table '{}' to handle schema drift", missing.size(), tableName);
+
+        // Add each column one at a time to avoid failing if some of the missing columns
+        // we created by a concurrent thread or application attempting to handle schema drift.
+        for (final RecordField field : missing) {
+            try {
+                final String columnName = lowercaseFields ? field.getFieldName().toLowerCase() : field.getFieldName();
+                kuduClient.alterTable(tableName, getAddNullableColumnStatement(columnName, field.getDataType()));
+            } catch (final KuduException e) {
+                // Ignore the exception if the column already exists due to concurrent
+                // threads or applications attempting to handle schema drift.
+                if (e.getStatus().isAlreadyPresent()) {
+                    getLogger().info("Column already exists in table '{}' while handling schema drift", tableName);
+                } else {
+                    throw new ProcessException(e);
+                }
+            }
+        }
+
+        return true;
     }
 
     private void transferFlowFiles(final List<FlowFile> flowFiles,
