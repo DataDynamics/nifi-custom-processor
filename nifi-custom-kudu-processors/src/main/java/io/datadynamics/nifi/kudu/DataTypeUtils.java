@@ -51,12 +51,10 @@ import java.sql.Types;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -82,6 +80,15 @@ import java.util.regex.Pattern;
 
 public class DataTypeUtils {
     private static final Logger logger = LoggerFactory.getLogger(DataTypeUtils.class);
+
+    // FIXED
+    public static DateTimeFormatter DEFAULT_NANOSECONDS_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("yyyy-MM-dd HH:mm:ss")
+            .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
+            .toFormatter();
+
+    // FIXED
+    public static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
     // Regexes for parsing Floating-Point numbers
     private static final String OptionalSign  = "[\\-\\+]?";
@@ -1427,8 +1434,17 @@ public class DataTypeUtils {
                     return new Timestamp(Long.parseLong(string));
                 }
 
+                /* Removed
+                    final java.util.Date utilDate = dateFormat.parse(string);
+                    return new Timestamp(utilDate.getTime());
+                */
+
+                // FIXED
                 final java.util.Date utilDate = dateFormat.parse(string);
-                return new Timestamp(utilDate.getTime());
+                Timestamp timestamp = new Timestamp(utilDate.getTime());
+                LocalDateTime localDateTime = timestamp.toLocalDateTime();
+                LocalDateTime plus = localDateTime.plus(Duration.ofHours(9)); // Local Time으로 9을 +한다. Kudu는 기본을 GMT로 본다.
+                return Timestamp.valueOf(plus);
             } catch (final ParseException e) {
                 final DateFormat dateFormat = format.get();
                 final String formatDescription;

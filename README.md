@@ -1,6 +1,12 @@
-# NiFi Custom Kudu Processor
+# NiFi Kudu Processor
 
-이 프로젝트는 NiFi에서 사용할 수 있는 Custom Kudu Processor를 구현한 NAR 프로젝트입니다.
+이 프로젝트는 NiFi에서 사용할 수 있는 Kudu Processor를 구현한 NAR 프로젝트입니다.
+
+## Requirement
+
+* NiFi 1.18.0
+* Apache Maven 3.8.0 이상
+* JDK 1.8 이상
 
 ## Build
 
@@ -11,15 +17,16 @@
 ## Deploy
 
 ```
-# cp nifi-custom-kudu-nar-1.0.0.nar <NIFI_HOME>/lib
+# cp nifi-custom-kudu-nar-1.0.0.nar <NIFI_HOME>/extentions
+# systemctl restart nifi
 ```
 
-## Processors
+## Processor
 
-## NanoTimestampSupportPutKudu
+### KstPutKudu
 
 이 Processor는 PutKudu Processor가 Timestamp인 날짜를 지정할때 nanoseconds 단위의 데이터를 저장할 수 없으므로 이를 해결하기 위한 Processor이다. 
-단, 날짜 컬럼은 문자열로 넘겨받아야 하며 NanoTimestampSupportPutKudu에서 nanoseconds를 지원하는 Timestamp로 변환한다.
+단, 날짜 컬럼은 문자열로 넘겨받아야 하며 KstPutKudu에서 nanoseconds를 지원하는 Timestamp로 변환한다.
 이렇게 하는 근본적인 이유는 JDBC로 Timestamp 컬럼을 SELECT하는 경우 Timestamp 컬럼은 기본으로 millis로 처리하기 때문에 문자열로 반드시 캐스팅해야 한다.
 
 ExecuteSQLRecord Processor에서 쿼리를 작성할 때에 다음과 같이 `c1` 컬럼이 Timestamp형인 경우 문자열로 조회한다.
