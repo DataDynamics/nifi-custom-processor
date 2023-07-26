@@ -41,7 +41,6 @@ import org.apache.nifi.serialization.record.DataType;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.RecordFieldType;
 import org.apache.nifi.serialization.record.type.DecimalDataType;
-import org.apache.nifi.serialization.record.util.DataTypeUtils;
 import org.apache.nifi.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -147,6 +146,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .build();
 
     private static final FieldConverter<Object, Timestamp> TIMESTAMP_FIELD_CONVERTER = new ObjectTimestampFieldConverter();
+
     /**
      * Timestamp Pattern overrides default RecordFieldType.TIMESTAMP pattern of yyyy-MM-dd HH:mm:ss with optional microseconds
      */
@@ -363,7 +363,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
         }
     }
 
-    protected void buildPartialRow(Schema schema, PartialRow row, Record record, List<String> fieldNames, boolean ignoreNull, boolean lowercaseFields) {
+    protected void buildPartialRow(Schema schema, PartialRow row, Record record, List<String> fieldNames, boolean ignoreNull, boolean lowercaseFields, int addHour) {
         for (String recordFieldName : fieldNames) {
             String colName = recordFieldName;
             if (lowercaseFields) {
@@ -411,7 +411,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                     case UNIXTIME_MICROS:
                         final Optional<DataType> optionalDataType = record.getSchema().getDataType(recordFieldName);
                         final Optional<String> optionalPattern = getTimestampPattern(optionalDataType);
-                        final Timestamp timestamp = TIMESTAMP_FIELD_CONVERTER.convertField(value, optionalPattern, recordFieldName);
+                        final Timestamp timestamp = TIMESTAMP_FIELD_CONVERTER.convertField(value, optionalPattern, recordFieldName, addHour); // FIXED
                         row.addTimestamp(columnIndex, timestamp);
                         break;
                     case STRING:

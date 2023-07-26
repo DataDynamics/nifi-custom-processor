@@ -104,6 +104,15 @@ public class KstPutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
 
+    protected static final PropertyDescriptor ADD_HOUR = new Builder()
+            .name("Timestamp 컬럼의 시간 추가")
+            .description("Timestamp 컬럼에서 GMT, KST 등의 시간 조정을 위해서 추가할 시간")
+            .required(false)
+            .defaultValue("0")
+            .addValidator(StandardValidators.INTEGER_VALIDATOR)
+            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
+            .build();
+
     public static final PropertyDescriptor RECORD_READER = new Builder()
             .name("record-reader")
             .displayName("Record Reader")
@@ -267,6 +276,8 @@ public class KstPutKudu extends AbstractKuduProcessor {
     // Properties set in onScheduled.
     private volatile int batchSize = 100;
     private volatile int ffbatch   = 1;
+
+    private volatile int addHour   = 0;
     private volatile SessionConfiguration.FlushMode flushMode;
     private volatile Function<Record, OperationType> recordPathOperationType;
     private volatile RecordPath dataRecordPath;
@@ -279,10 +290,6 @@ public class KstPutKudu extends AbstractKuduProcessor {
         properties.add(KUDU_MASTERS);
         properties.add(TABLE_NAME);
         properties.add(FAILURE_STRATEGY);
-        properties.add(KERBEROS_USER_SERVICE);
-        properties.add(KERBEROS_CREDENTIALS_SERVICE);
-        properties.add(KERBEROS_PRINCIPAL);
-        properties.add(KERBEROS_PASSWORD);
         properties.add(SKIP_HEAD_LINE);
         properties.add(LOWERCASE_FIELD_NAMES);
         properties.add(HANDLE_SCHEMA_DRIFT);
@@ -294,10 +301,15 @@ public class KstPutKudu extends AbstractKuduProcessor {
         properties.add(FLOWFILE_BATCH_SIZE);
         properties.add(BATCH_SIZE);
         properties.add(IGNORE_NULL);
+        properties.add(WORKER_COUNT);
+        properties.add(ADD_HOUR);
         properties.add(KUDU_OPERATION_TIMEOUT_MS);
         properties.add(KUDU_KEEP_ALIVE_PERIOD_TIMEOUT_MS);
-        properties.add(WORKER_COUNT);
         properties.add(KUDU_SASL_PROTOCOL_NAME);
+        properties.add(KERBEROS_USER_SERVICE);
+        properties.add(KERBEROS_CREDENTIALS_SERVICE);
+        properties.add(KERBEROS_PRINCIPAL);
+        properties.add(KERBEROS_PASSWORD);
         return properties;
     }
 
@@ -313,6 +325,7 @@ public class KstPutKudu extends AbstractKuduProcessor {
     public void onScheduled(final ProcessContext context) throws LoginException {
         batchSize = context.getProperty(BATCH_SIZE).evaluateAttributeExpressions().asInteger();
         ffbatch   = context.getProperty(FLOWFILE_BATCH_SIZE).evaluateAttributeExpressions().asInteger();
+        addHour   = context.getProperty(ADD_HOUR).evaluateAttributeExpressions().asInteger();
         flushMode = SessionConfiguration.FlushMode.valueOf(context.getProperty(FLUSH_MODE).getValue().toUpperCase());
         createKerberosUserAndOrKuduClient(context);
         supportsInsertIgnoreOp = supportsIgnoreOperations();
@@ -677,7 +690,7 @@ public class KstPutKudu extends AbstractKuduProcessor {
             default:
                 throw new IllegalArgumentException(String.format("OperationType: %s not supported by Kudu", operationType));
         }
-        buildPartialRow(kuduTable.getSchema(), operation.getRow(), record, fieldNames, ignoreNull, lowercaseFields);
+        buildPartialRow(kuduTable.getSchema(), operation.getRow(), record, fieldNames, ignoreNull, lowercaseFields, addHour);
         return operation;
     }
 

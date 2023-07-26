@@ -3,6 +3,7 @@ package io.datadynamics.nifi.kudu;
 import org.apache.nifi.serialization.record.util.IllegalTypeConversionException;
 
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -23,7 +24,7 @@ public class ObjectTimestampFieldConverter implements FieldConverter<Object, Tim
      * @throws IllegalTypeConversionException Thrown on parsing failures or unsupported types of input fields
      */
     @Override
-    public Timestamp convertField(final Object field, final Optional<String> pattern, final String name) {
+    public Timestamp convertField(final Object field, final Optional<String> pattern, final String name, final int addHour) {
         if (field == null) {
             return null;
         }
@@ -47,8 +48,14 @@ public class ObjectTimestampFieldConverter implements FieldConverter<Object, Tim
             if (pattern.isPresent()) {
                 final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern.get());
                 try {
+                    // FIXED
                     final LocalDateTime localDateTime = LocalDateTime.parse(string, formatter);
-                    return Timestamp.valueOf(localDateTime);
+                    if(addHour != 0) {
+                        LocalDateTime plus = localDateTime.plus(Duration.ofHours(addHour));
+                        return Timestamp.valueOf(plus);
+                    } else {
+                        return Timestamp.valueOf(localDateTime);
+                    }
                 } catch (final DateTimeParseException e) {
                     final String message = String.format("Convert Field Name [%s] Value [%s] to Timestamp LocalDateTime parsing failed: %s", name, field, e.getMessage());
                     throw new IllegalTypeConversionException(message);

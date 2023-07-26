@@ -14,7 +14,8 @@ public interface FieldConverter<I, O> {
      * @param field Input field to be converted
      * @param pattern Format pattern optional for parsing
      * @param name Input field name for tracking
+     * @param addHour Hours to Add
      * @return Converted Field can be null when input field is null or empty
      */
-    O convertField(I field, Optional<String> pattern, String name);
+    O convertField(I field, Optional<String> pattern, String name, int addHour);
 }
