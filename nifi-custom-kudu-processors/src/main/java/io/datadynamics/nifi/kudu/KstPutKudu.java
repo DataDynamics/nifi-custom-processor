@@ -84,13 +84,11 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.VARIABLE_REGIST
 @SupportsBatching
 @RequiresInstanceClassLoading // Because of calls to UserGroupInformation.setConfiguration
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
-@Tags({"put", "database", "NoSQL", "kudu", "HDFS", "record"})
-@CapabilityDescription("Reads records from an incoming FlowFile using the provided Record Reader, and writes those records " +
-        "to the specified Kudu's table. The schema for the Kudu table is inferred from the schema of the Record Reader." +
-        " If any error occurs while reading records from the input, or writing records to Kudu, the FlowFile will be routed to failure")
-@WritesAttribute(attribute = "record.count", description = "Number of records written to Kudu")
-
-public class AddNineHoursPutKudu extends AbstractKuduProcessor {
+@Tags({"put", "database", "NoSQL", "kudu", "HDFS", "record", "kst", "korea"})
+@CapabilityDescription("지정한 Record Reader를 사용하여 Incoming FlowFile에서 레코드를 읽고 해당 레코드를 지정된 Kudu의 테이블에 기록합니다. Kudu 테이블의 스키마는 Record Reader의 스키마를 활용합니다. " +
+        "입력에서 레코드를 읽거나 Kudu에 레코드를 쓰는 동안 오류가 발생하면 FlowFile이 failure로 라우팅됩니다.")
+@WritesAttribute(attribute = "record.count", description = "Kudu에 기록한 레코드 수")
+public class KstPutKudu extends AbstractKuduProcessor {
 
     static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure", "Route to Failure",
             "The FlowFile containing the Records that failed to insert will be routed to the 'failure' relationship");
@@ -109,7 +107,7 @@ public class AddNineHoursPutKudu extends AbstractKuduProcessor {
     public static final PropertyDescriptor RECORD_READER = new Builder()
             .name("record-reader")
             .displayName("Record Reader")
-            .description("The service for reading records from incoming flow files.")
+            .description("Incoming flow file에서 레코드를 읽기 위한 서비스입니다.")
             .identifiesControllerService(RecordReaderFactory.class)
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
@@ -117,8 +115,8 @@ public class AddNineHoursPutKudu extends AbstractKuduProcessor {
 
     static final PropertyDescriptor FAILURE_STRATEGY = new Builder()
             .name("Failure Strategy")
-            .displayName("Failure Strategy")
-            .description("If one or more Records in a batch cannot be transferred to Kudu, specifies how to handle the failure")
+            .displayName("실패 처리 방법")
+            .description("배치에서 하나 이상의 레코드를 Kudu로 전송할 수 없는 경우 실패 처리 방법을 지정합니다.")
             .required(true)
             .allowableValues(FAILURE_STRATEGY_ROUTE, FAILURE_STRATEGY_ROLLBACK)
             .defaultValue(FAILURE_STRATEGY_ROUTE.getValue())
@@ -126,8 +124,7 @@ public class AddNineHoursPutKudu extends AbstractKuduProcessor {
 
     protected static final PropertyDescriptor SKIP_HEAD_LINE = new Builder()
             .name("Skip head line")
-            .description("Deprecated. Used to ignore header lines, but this should be handled by a RecordReader " +
-                    "(e.g. \"Treat First Line as Header\" property of CSVReader)")
+            .description("Deprecated. Used to ignore header lines, but this should be handled by a RecordReader (e.g. \"Treat First Line as Header\" property of CSVReader)")
             .allowableValues("true", "false")
             .defaultValue("false")
             .required(true)
@@ -136,7 +133,7 @@ public class AddNineHoursPutKudu extends AbstractKuduProcessor {
 
     protected static final PropertyDescriptor LOWERCASE_FIELD_NAMES = new Builder()
             .name("Lowercase Field Names")
-            .description("Convert column names to lowercase when finding index of Kudu table columns")
+            .description("Kudu 테이블 컬럼의 인덱스를 찾을 때 컬럼명을 소문자로 변환")
             .defaultValue("false")
             .required(true)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
@@ -249,7 +246,7 @@ public class AddNineHoursPutKudu extends AbstractKuduProcessor {
 
     protected static final PropertyDescriptor IGNORE_NULL = new Builder()
             .name("Ignore NULL")
-            .description("Ignore NULL on Kudu Put Operation, Update only non-Null columns if set true")
+            .description("Kudu Put 작업시 NULL 무시. true로 설정하면 non-null만 업데이트합니다.")
             .defaultValue("false")
             .required(true)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
