@@ -17,7 +17,7 @@
 ## Deploy
 
 ```
-# cp nifi-custom-kudu-nar-1.0.0.nar <NIFI_HOME>/extentions
+# cp nifi-custom-kudu-nar-1.0.3.nar <NIFI_HOME>/extentions
 # systemctl restart nifi
 ```
 
