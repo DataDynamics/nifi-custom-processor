@@ -52,3 +52,14 @@ Query progress can be monitored at: http://sem1.io:25000/query_plan?query_id=c24
 +-------------------------------+
 Fetched 1 row(s) in 0.13s
 ```
+
+### DatabaseProcessor
+
+DBCP Connection Pool을 이용한 SQL을 실행시키는 예제 Processor
+
+#### Impala JDBC Driver
+
+Impala JDBC Driver로 테스트를 위해서 `lib/ImpalaJDBC42.jar` 파일을 NIFI가 설치되어 있는 적정 위치(예; `/opt/cloudera/parcels/CFM/NIFI/lib`)에 업로드합니다.
+
+* JDBC Driver는 `com.cloudera.impala.jdbc.Driver`
+* JDBC URL은 `jdbc:impala://host:21050/default`
