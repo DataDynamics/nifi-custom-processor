@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="maven-antrun" default="main">
 
-    <target name="main">
+    <target name="NAR">
         <echo message="Copying NAR to NiFi Extensions"/>
 
         <scp trust="true" todir="root:dd98969321@10.0.1.233:/opt/nifi/extensions" failonerror="true">
@@ -32,6 +32,41 @@
         <scp trust="true" todir="root:dd98969321@10.0.1.235:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-kudu-nar/target">
                 <include name="nifi-custom-kudu-nar-1.0.3.nar"/>
+            </fileset>
+        </scp>
+    </target>
+
+    <target name="IMPALA-JDBC">
+        <echo message="Copying JDBC Driver to NIFI"/>
+
+        <scp trust="true" todir="root:dd98969321@10.0.1.233:/opt/cloudera/parcels/CFM/NIFI/lib" failonerror="true">
+            <fileset dir="nifi-custom-kudu-processors/lib">
+                <include name="ImpalaJDBC42.jar"/>
+            </fileset>
+        </scp>
+        <scp trust="true" todir="root:dd98969321@10.0.1.230:/opt/cloudera/parcels/CFM/NIFI/lib" failonerror="true">
+            <fileset dir="nifi-custom-kudu-processors/lib">
+                <include name="ImpalaJDBC42.jar"/>
+            </fileset>
+        </scp>
+        <scp trust="true" todir="root:dd98969321@10.0.1.231:/opt/cloudera/parcels/CFM/NIFI/lib" failonerror="true">
+            <fileset dir="nifi-custom-kudu-processors/lib">
+                <include name="ImpalaJDBC42.jar"/>
+            </fileset>
+        </scp>
+        <scp trust="true" todir="root:dd98969321@10.0.1.232:/opt/cloudera/parcels/CFM/NIFI/lib" failonerror="true">
+            <fileset dir="nifi-custom-kudu-processors/lib">
+                <include name="ImpalaJDBC42.jar"/>
+            </fileset>
+        </scp>
+        <scp trust="true" todir="root:dd98969321@10.0.1.234:/opt/cloudera/parcels/CFM/NIFI/lib" failonerror="true">
+            <fileset dir="nifi-custom-kudu-processors/lib">
+                <include name="ImpalaJDBC42.jar"/>
+            </fileset>
+        </scp>
+        <scp trust="true" todir="root:dd98969321@10.0.1.235:/opt/cloudera/parcels/CFM/NIFI/lib" failonerror="true">
+            <fileset dir="nifi-custom-kudu-processors/lib">
+                <include name="ImpalaJDBC42.jar"/>
             </fileset>
         </scp>
     </target>
