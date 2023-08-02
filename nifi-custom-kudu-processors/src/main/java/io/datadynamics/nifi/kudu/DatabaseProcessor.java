@@ -84,27 +84,21 @@ public class DatabaseProcessor extends AbstractProcessor {
 
     @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
-        FlowFile fileToProcess = null;
-        if (context.hasIncomingConnection()) {
-            fileToProcess = session.get();
-            if (fileToProcess == null && context.hasNonLoopConnection()) {
-                return;
-            }
-        }
-
-        String selectQuery = context.getProperty(SQL_SELECT_QUERY).evaluateAttributeExpressions(fileToProcess).getValue();
+        String selectQuery = context.getProperty(SQL_SELECT_QUERY).evaluateAttributeExpressions().getValue();
         try {
             final Connection conn = dbcpService.getConnection();
             PreparedStatement psmt = conn.prepareStatement(selectQuery);
             ResultSet rs = psmt.executeQuery();
             while (rs.next()) {
                 int value = rs.getInt(1);
-                FlowFile flowFile = session.create(fileToProcess);
+                FlowFile flowFile = session.create();
                 session.putAttribute(flowFile, "id", String.valueOf(value));
                 session.transfer(flowFile, REL_SUCCESS);
             }
         } catch (Exception e) {
-            session.transfer(fileToProcess, REL_FAILURE);
+            getLogger().warn("JDBC SQL을 실행할 수 없습니다. 메시지 : {}", e.getMessage(), e);
+
+            session.transfer(session.create(), REL_FAILURE);
         }
     }
 }
