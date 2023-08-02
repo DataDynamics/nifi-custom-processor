@@ -4,20 +4,34 @@
     <target name="main">
         <echo message="Copying NAR to NiFi Extensions"/>
 
-        <scp trust="true" todir="root:dd98969321@172.30.1.214:/opt/nifi/extensions" failonerror="true">
+        <scp trust="true" todir="root:dd98969321@10.0.1.233:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-kudu-nar/target">
-                <include name="nifi-custom-kudu-nar-1.0.2.nar"/>
+                <include name="nifi-custom-kudu-nar-1.0.3.nar"/>
             </fileset>
         </scp>
-
-        <scp trust="true" todir="root:dd98969321@172.30.1.215:/opt/nifi/extensions" failonerror="true">
+        <scp trust="true" todir="root:dd98969321@10.0.1.230:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-kudu-nar/target">
-                <include name="nifi-custom-kudu-nar-1.0.2.nar"/>
+                <include name="nifi-custom-kudu-nar-1.0.3.nar"/>
             </fileset>
         </scp>
-        <scp trust="true" todir="root:dd98969321@172.30.1.216:/opt/nifi/extensions" failonerror="true">
+        <scp trust="true" todir="root:dd98969321@10.0.1.231:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-kudu-nar/target">
-                <include name="nifi-custom-kudu-nar-1.0.2.nar"/>
+                <include name="nifi-custom-kudu-nar-1.0.3.nar"/>
+            </fileset>
+        </scp>
+        <scp trust="true" todir="root:dd98969321@10.0.1.232:/opt/nifi/extensions" failonerror="true">
+            <fileset dir="nifi-custom-kudu-nar/target">
+                <include name="nifi-custom-kudu-nar-1.0.3.nar"/>
+            </fileset>
+        </scp>
+        <scp trust="true" todir="root:dd98969321@10.0.1.234:/opt/nifi/extensions" failonerror="true">
+            <fileset dir="nifi-custom-kudu-nar/target">
+                <include name="nifi-custom-kudu-nar-1.0.3.nar"/>
+            </fileset>
+        </scp>
+        <scp trust="true" todir="root:dd98969321@10.0.1.235:/opt/nifi/extensions" failonerror="true">
+            <fileset dir="nifi-custom-kudu-nar/target">
+                <include name="nifi-custom-kudu-nar-1.0.3.nar"/>
             </fileset>
         </scp>
     </target>
