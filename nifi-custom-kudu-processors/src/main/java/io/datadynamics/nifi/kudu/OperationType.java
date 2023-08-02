@@ -23,5 +23,5 @@ public enum OperationType {
     UPDATE,
     DELETE,
     UPDATE_IGNORE,
-    DELETE_IGNORE;
+    DELETE_IGNORE
 }

@@ -1,4 +1,5 @@
 package io.datadynamics.nifi.kudu;
+
 import java.util.Optional;
 
 /**
@@ -11,9 +12,9 @@ public interface FieldConverter<I, O> {
     /**
      * Convert Field using Output Field Type with optional format parsing
      *
-     * @param field Input field to be converted
+     * @param field   Input field to be converted
      * @param pattern Format pattern optional for parsing
-     * @param name Input field name for tracking
+     * @param name    Input field name for tracking
      * @param addHour Hours to Add
      * @return Converted Field can be null when input field is null or empty
      */
