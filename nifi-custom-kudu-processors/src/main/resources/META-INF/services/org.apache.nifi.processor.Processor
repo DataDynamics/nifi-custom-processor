@@ -1,2 +1,2 @@
 io.datadynamics.nifi.kudu.KstPutKudu
-io.datadynamics.nifi.kudu.DatabaseProcessor
+io.datadynamics.nifi.db.DatabaseProcessor

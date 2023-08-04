@@ -1,5 +1,6 @@
 package io.datadynamics.nifi.kudu;
 
+import io.datadynamics.nifi.db.DatabaseProcessor;
 import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.dbcp.DBCPService;
 import org.apache.nifi.processor.exception.ProcessException;
