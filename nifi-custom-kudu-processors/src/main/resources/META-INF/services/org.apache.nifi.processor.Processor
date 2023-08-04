@@ -1,2 +1,2 @@
 io.datadynamics.nifi.kudu.KstPutKudu
-io.datadynamics.nifi.db.DatabaseProcessor
+io.datadynamics.nifi.db.bulkinsert.BulkOracleInsertProcessor

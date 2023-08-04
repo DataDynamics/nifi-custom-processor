@@ -1,4 +1,4 @@
-package io.datadynamics.nifi.db;
+package io.datadynamics.nifi.db.bulkinsert;
 
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -25,7 +25,7 @@ import java.util.Set;
 
 @InputRequirement(InputRequirement.Requirement.INPUT_FORBIDDEN)
 @Tags({"sql", "select", "jdbc", "query", "database"})
-public class DatabaseProcessor extends AbstractProcessor {
+public class BulkOracleInsertProcessor extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
             .name("success")

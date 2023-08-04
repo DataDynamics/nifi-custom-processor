@@ -1,6 +1,6 @@
 package io.datadynamics.nifi.kudu;
 
-import io.datadynamics.nifi.db.DatabaseProcessor;
+import io.datadynamics.nifi.db.bulkinsert.BulkOracleInsertProcessor;
 import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.dbcp.DBCPService;
 import org.apache.nifi.processor.exception.ProcessException;
@@ -18,7 +18,7 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 
-public class TestDatabaseProcessor {
+public class TestBulkOracleInsertProcessor {
 
     private final Logger LOGGER = LoggerFactory.getLogger(DBCPService.class);
 
@@ -31,10 +31,10 @@ public class TestDatabaseProcessor {
         final DBCPService dbcp = new DBCPServiceSimpleImpl();
         final Map<String, String> dbcpProperties = new HashMap<>();
 
-        runner = TestRunners.newTestRunner(DatabaseProcessor.class);
+        runner = TestRunners.newTestRunner(BulkOracleInsertProcessor.class);
         runner.addControllerService("dbcp", dbcp, dbcpProperties);
         runner.enableControllerService(dbcp);
-        runner.setProperty(DatabaseProcessor.DBCP_SERVICE, "dbcp");
+        runner.setProperty(BulkOracleInsertProcessor.DBCP_SERVICE, "dbcp");
 
         final Connection con = ((DBCPService) runner.getControllerService("dbcp")).getConnection();
         Statement stmt = con.createStatement();
@@ -50,12 +50,12 @@ public class TestDatabaseProcessor {
         stmt.execute("insert into TEST_NULL_INT (id, val1, val2) VALUES (1, 1, 1)");
 
         runner.setIncomingConnection(false);
-        runner.setProperty(DatabaseProcessor.SQL_SELECT_QUERY, "SELECT * FROM TEST_NULL_INT");
+        runner.setProperty(BulkOracleInsertProcessor.SQL_SELECT_QUERY, "SELECT * FROM TEST_NULL_INT");
         runner.run();
 
-        runner.assertAllFlowFilesTransferred(DatabaseProcessor.REL_SUCCESS, 2);
+        runner.assertAllFlowFilesTransferred(BulkOracleInsertProcessor.REL_SUCCESS, 2);
 
-        MockFlowFile flowFile = runner.getFlowFilesForRelationship(DatabaseProcessor.REL_SUCCESS).get(0);
+        MockFlowFile flowFile = runner.getFlowFilesForRelationship(BulkOracleInsertProcessor.REL_SUCCESS).get(0);
     }
 
     class DBCPServiceSimpleImpl extends AbstractControllerService implements DBCPService {
