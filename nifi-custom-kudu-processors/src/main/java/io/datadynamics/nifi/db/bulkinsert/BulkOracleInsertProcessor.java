@@ -1,6 +1,5 @@
 package io.datadynamics.nifi.db.bulkinsert;
 
-import io.datadynamics.nifi.db.putdatabaserecord.RollbackOnFailure;
 import org.apache.kudu.shaded.com.google.common.base.Joiner;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.Tags;
