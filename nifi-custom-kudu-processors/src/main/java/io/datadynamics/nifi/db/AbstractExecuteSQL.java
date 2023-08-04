@@ -19,19 +19,8 @@ import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.util.StopWatch;
 
 import java.nio.charset.Charset;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.sql.*;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -460,7 +449,7 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
                     logger.error("Unable to execute SQL select query [{}] routing to failure", selectQuery, e);
                     context.yield();
                 }
-                session.putAttribute(fileToProcess,RESULT_ERROR_MESSAGE,e.getMessage());
+                session.putAttribute(fileToProcess, RESULT_ERROR_MESSAGE, e.getMessage());
                 session.transfer(fileToProcess, REL_FAILURE);
             }
         }
@@ -470,13 +459,13 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
      * Executes given queries using pre-defined connection.
      * Returns null on success, or a query string if failed.
      */
-    protected Pair<String,SQLException> executeConfigStatements(final Connection con, final List<String> configQueries){
+    protected Pair<String, SQLException> executeConfigStatements(final Connection con, final List<String> configQueries) {
         if (configQueries == null || configQueries.isEmpty()) {
             return null;
         }
 
         for (String confSQL : configQueries) {
-            try(final Statement st = con.createStatement()){
+            try (final Statement st = con.createStatement()) {
                 st.execute(confSQL);
             } catch (SQLException e) {
                 return Pair.of(confSQL, e);

@@ -21,35 +21,15 @@ import org.apache.nifi.avro.AvroTypeUtil;
 import org.apache.nifi.serialization.record.util.DataTypeUtils;
 
 import javax.xml.bind.DatatypeConverter;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.Reader;
-import java.io.StringReader;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLDataException;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLXML;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.sql.*;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Map;
@@ -59,37 +39,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static java.sql.Types.ARRAY;
-import static java.sql.Types.BIGINT;
-import static java.sql.Types.BINARY;
-import static java.sql.Types.BIT;
-import static java.sql.Types.BLOB;
-import static java.sql.Types.BOOLEAN;
-import static java.sql.Types.CHAR;
-import static java.sql.Types.CLOB;
-import static java.sql.Types.DATE;
-import static java.sql.Types.DECIMAL;
-import static java.sql.Types.DOUBLE;
-import static java.sql.Types.FLOAT;
-import static java.sql.Types.INTEGER;
-import static java.sql.Types.LONGNVARCHAR;
-import static java.sql.Types.LONGVARBINARY;
-import static java.sql.Types.LONGVARCHAR;
-import static java.sql.Types.NCHAR;
-import static java.sql.Types.NCLOB;
-import static java.sql.Types.NUMERIC;
-import static java.sql.Types.NVARCHAR;
-import static java.sql.Types.OTHER;
-import static java.sql.Types.REAL;
-import static java.sql.Types.ROWID;
-import static java.sql.Types.SMALLINT;
-import static java.sql.Types.SQLXML;
-import static java.sql.Types.TIME;
-import static java.sql.Types.TIMESTAMP;
-import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
-import static java.sql.Types.TINYINT;
-import static java.sql.Types.VARBINARY;
-import static java.sql.Types.VARCHAR;
+import static java.sql.Types.*;
 
 /**
  * JDBC / SQL common functions.
@@ -341,7 +291,7 @@ public class JdbcCommon {
                         // direct put to avro record results:
                         // org.apache.avro.AvroRuntimeException: Unknown datum type java.lang.Byte
                         rec.put(i - 1, ((Byte) value).intValue());
-                    } else if(value instanceof Short) {
+                    } else if (value instanceof Short) {
                         //MS SQL returns TINYINT as a Java Short, which Avro doesn't understand.
                         rec.put(i - 1, ((Short) value).intValue());
                     } else if (value instanceof BigDecimal) {
@@ -384,10 +334,10 @@ public class JdbcCommon {
                                 rec.put(i - 1, value);
                             }
                         } else if ((value instanceof Long) && meta.getPrecision(i) < MAX_DIGITS_IN_INT) {
-                            int intValue = ((Long)value).intValue();
-                            rec.put(i-1, intValue);
+                            int intValue = ((Long) value).intValue();
+                            rec.put(i - 1, intValue);
                         } else {
-                            rec.put(i-1, value);
+                            rec.put(i - 1, value);
                         }
                     } else if (javaSqlType == DATE) {
                         if (options.useLogicalTypes) {
@@ -433,7 +383,7 @@ public class JdbcCommon {
                     nrOfRows += 1;
                 } catch (DataFileWriter.AppendWriteException awe) {
                     Throwable rootCause = ExceptionUtils.getRootCause(awe);
-                    if(rootCause instanceof UnresolvedUnionException) {
+                    if (rootCause instanceof UnresolvedUnionException) {
                         UnresolvedUnionException uue = (UnresolvedUnionException) rootCause;
                         throw new RuntimeException("Unable to resolve union for value " + uue.getUnresolvedDatum() + " with type " + uue.getUnresolvedDatum().getClass().getCanonicalName() + " while appending record " + rec, awe);
                     } else {
@@ -471,7 +421,7 @@ public class JdbcCommon {
      * Creates an Avro schema from a result set. If the table/record name is known a priori and provided, use that as a
      * fallback for the record name if it cannot be retrieved from the result set, and finally fall back to a default value.
      *
-     * @param rs The result set to convert to Avro
+     * @param rs      The result set to convert to Avro
      * @param options Specify various options
      * @return A Schema object representing the result set converted to an Avro record
      * @throws SQLException if any error occurs during conversion
@@ -502,7 +452,7 @@ public class JdbcCommon {
              *  so it may be a better option to check for columnlabel first and if in case it is null is someimplementation,
              *  check for alias. Postgres is the one that has the null column names for calculated fields.
              */
-            String nameOrLabel = StringUtils.isNotEmpty(meta.getColumnLabel(i)) ? meta.getColumnLabel(i) :meta.getColumnName(i);
+            String nameOrLabel = StringUtils.isNotEmpty(meta.getColumnLabel(i)) ? meta.getColumnLabel(i) : meta.getColumnName(i);
             String columnName = options.convertNames ? normalizeNameForAvro(nameOrLabel) : nameOrLabel;
             switch (meta.getColumnType(i)) {
                 case CHAR:
@@ -658,7 +608,7 @@ public class JdbcCommon {
     /**
      * Sets all of the appropriate parameters on the given PreparedStatement, based on the given FlowFile attributes.
      *
-     * @param stmt the statement to set the parameters on
+     * @param stmt       the statement to set the parameters on
      * @param attributes the attributes from which to derive parameter indices, values, and types
      * @throws SQLException if the PreparedStatement throws a SQLException when the appropriate setter is called
      */
@@ -673,7 +623,7 @@ public class JdbcCommon {
      * Sets all of the appropriate parameters on the given PreparedStatement, based on the given FlowFile attributes
      * and masks sensitive values.
      *
-     * @param stmt the statement to set the parameters on
+     * @param stmt       the statement to set the parameters on
      * @param attributes the attributes from which to derive parameter indices, values, and types
      * @throws SQLException if the PreparedStatement throws a SQLException when the appropriate setter is called
      */
@@ -720,10 +670,10 @@ public class JdbcCommon {
      * Determines how to map the given value to the appropriate JDBC data type and sets the parameter on the
      * provided PreparedStatement
      *
-     * @param stmt the PreparedStatement to set the parameter on
+     * @param stmt           the PreparedStatement to set the parameter on
      * @param parameterIndex the index of the SQL parameter to set
      * @param parameterValue the value of the SQL parameter to set
-     * @param jdbcType the JDBC Type of the SQL parameter to set
+     * @param jdbcType       the JDBC Type of the SQL parameter to set
      * @throws SQLException if the PreparedStatement throws a SQLException when calling the appropriate setter
      */
     public static void setParameter(final PreparedStatement stmt, final int parameterIndex, final String parameterValue, final int jdbcType, final String valueFormat) throws SQLException, ParseException, UnsupportedEncodingException {
@@ -764,9 +714,9 @@ public class JdbcCommon {
                     java.sql.Date date;
 
                     if (valueFormat.equals("")) {
-                        if(LONG_PATTERN.matcher(parameterValue).matches()){
+                        if (LONG_PATTERN.matcher(parameterValue).matches()) {
                             date = new java.sql.Date(Long.parseLong(parameterValue));
-                        }else {
+                        } else {
                             String dateFormatString = "yyyy-MM-dd";
                             SimpleDateFormat dateFormat = new SimpleDateFormat(dateFormatString);
                             java.util.Date parsedDate = dateFormat.parse(parameterValue);
@@ -808,10 +758,10 @@ public class JdbcCommon {
                     // Backwards compatibility note: Format was unsupported for a timestamp field.
                     if (valueFormat.equals("")) {
                         long lTimestamp = 0L;
-                        if(LONG_PATTERN.matcher(parameterValue).matches()){
+                        if (LONG_PATTERN.matcher(parameterValue).matches()) {
                             lTimestamp = Long.parseLong(parameterValue);
                         } else {
-                            final SimpleDateFormat dateFormat  = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+                            final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
                             java.util.Date parsedDate = dateFormat.parse(parameterValue);
                             lTimestamp = parsedDate.getTime();
                         }
@@ -829,7 +779,7 @@ public class JdbcCommon {
                 case Types.LONGVARBINARY:
                     byte[] bValue;
 
-                    switch(valueFormat){
+                    switch (valueFormat) {
                         case "":
                         case "ascii":
                             bValue = parameterValue.getBytes("ASCII");
@@ -841,7 +791,7 @@ public class JdbcCommon {
                             bValue = DatatypeConverter.parseBase64Binary(parameterValue);
                             break;
                         default:
-                            throw new ParseException("Unable to parse binary data using the formatter `" + valueFormat + "`.",0);
+                            throw new ParseException("Unable to parse binary data using the formatter `" + valueFormat + "`.", 0);
                     }
 
                     try {
@@ -875,23 +825,39 @@ public class JdbcCommon {
     }
 
     public static DateTimeFormatter getDateTimeFormatter(String pattern) {
-        switch(pattern) {
-            case "BASIC_ISO_DATE": return DateTimeFormatter.BASIC_ISO_DATE;
-            case "ISO_LOCAL_DATE": return DateTimeFormatter.ISO_LOCAL_DATE;
-            case "ISO_OFFSET_DATE": return DateTimeFormatter.ISO_OFFSET_DATE;
-            case "ISO_DATE": return DateTimeFormatter.ISO_DATE;
-            case "ISO_LOCAL_TIME": return DateTimeFormatter.ISO_LOCAL_TIME;
-            case "ISO_OFFSET_TIME": return DateTimeFormatter.ISO_OFFSET_TIME;
-            case "ISO_TIME": return DateTimeFormatter.ISO_TIME;
-            case "ISO_LOCAL_DATE_TIME": return DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-            case "ISO_OFFSET_DATE_TIME": return DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-            case "ISO_ZONED_DATE_TIME": return DateTimeFormatter.ISO_ZONED_DATE_TIME;
-            case "ISO_DATE_TIME": return DateTimeFormatter.ISO_DATE_TIME;
-            case "ISO_ORDINAL_DATE": return DateTimeFormatter.ISO_ORDINAL_DATE;
-            case "ISO_WEEK_DATE": return DateTimeFormatter.ISO_WEEK_DATE;
-            case "ISO_INSTANT": return DateTimeFormatter.ISO_INSTANT;
-            case "RFC_1123_DATE_TIME": return DateTimeFormatter.RFC_1123_DATE_TIME;
-            default: return DateTimeFormatter.ofPattern(pattern);
+        switch (pattern) {
+            case "BASIC_ISO_DATE":
+                return DateTimeFormatter.BASIC_ISO_DATE;
+            case "ISO_LOCAL_DATE":
+                return DateTimeFormatter.ISO_LOCAL_DATE;
+            case "ISO_OFFSET_DATE":
+                return DateTimeFormatter.ISO_OFFSET_DATE;
+            case "ISO_DATE":
+                return DateTimeFormatter.ISO_DATE;
+            case "ISO_LOCAL_TIME":
+                return DateTimeFormatter.ISO_LOCAL_TIME;
+            case "ISO_OFFSET_TIME":
+                return DateTimeFormatter.ISO_OFFSET_TIME;
+            case "ISO_TIME":
+                return DateTimeFormatter.ISO_TIME;
+            case "ISO_LOCAL_DATE_TIME":
+                return DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+            case "ISO_OFFSET_DATE_TIME":
+                return DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+            case "ISO_ZONED_DATE_TIME":
+                return DateTimeFormatter.ISO_ZONED_DATE_TIME;
+            case "ISO_DATE_TIME":
+                return DateTimeFormatter.ISO_DATE_TIME;
+            case "ISO_ORDINAL_DATE":
+                return DateTimeFormatter.ISO_ORDINAL_DATE;
+            case "ISO_WEEK_DATE":
+                return DateTimeFormatter.ISO_WEEK_DATE;
+            case "ISO_INSTANT":
+                return DateTimeFormatter.ISO_INSTANT;
+            case "RFC_1123_DATE_TIME":
+                return DateTimeFormatter.RFC_1123_DATE_TIME;
+            default:
+                return DateTimeFormatter.ofPattern(pattern);
         }
     }
 
@@ -902,6 +868,7 @@ public class JdbcCommon {
      */
     public interface ResultSetRowCallback {
         void processRow(ResultSet resultSet) throws IOException;
+
         void applyStateChanges();
     }
 }
