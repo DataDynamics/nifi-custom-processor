@@ -68,6 +68,7 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
             .displayName("Bulk Insert Row Count")
             .description("벌크로 INSERT할 ROW 수")
             .addValidator(StandardValidators.NON_NEGATIVE_INTEGER_VALIDATOR)
+            .expressionLanguageSupported(VARIABLE_REGISTRY)
             .defaultValue("100")
             .required(true)
             .build();
@@ -127,6 +128,7 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         propDescriptors.add(QUERY_TIMEOUT);
         propDescriptors.add(SCHEMA_NAME);
         propDescriptors.add(TABLE_NAME);
+        propDescriptors.add(RollbackOnFailure.ROLLBACK_ON_FAILURE);
         return propDescriptors;
     }
 
@@ -250,7 +252,8 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
 
             if (count > 0) {
                 String sql = generateInsertQuery(schemaName, tableName, recordSchema, records);
-                statement.execute(sql);
+                System.out.println(sql);
+//                statement.execute(sql);
                 records.clear();
             }
         }
