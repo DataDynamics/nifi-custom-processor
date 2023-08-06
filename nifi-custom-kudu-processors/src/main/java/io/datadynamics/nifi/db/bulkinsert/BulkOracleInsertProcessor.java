@@ -36,27 +36,31 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.FLOWFILE_ATTRIB
 import static org.apache.nifi.expression.ExpressionLanguageScope.VARIABLE_REGISTRY;
 
 
+/**
+ * Oracle DB에 FlowFile의 Content를 포함하는 데이터를 Bulk Insert를 수행하는 Processor.
+ */
 @InputRequirement(InputRequirement.Requirement.INPUT_FORBIDDEN)
 @Tags({"sql", "select", "jdbc", "query", "database"})
 public class BulkOracleInsertProcessor extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
             .name("success")
-            .description("Successfully created FlowFile from SQL query result set.")
+            .description("Bulk Insert SQL을 성공적으로 실행함")
             .build();
+
     public static final Relationship REL_FAILURE = new Relationship.Builder()
             .name("failure")
-            .description("SQL query execution failed. Incoming FlowFile will be penalized and routed to this relationship")
+            .description("SQL 실행 에러. 입력으로 들어온 FlowFile은 라우팅되거나 페널티를 부여하게 됨")
             .build();
 
     static final Relationship REL_RETRY = new Relationship.Builder()
             .name("retry")
-            .description("A FlowFile is routed to this relationship if the database cannot be updated but attempting the operation again may succeed")
+            .description("데이터베이스 접근는 성공하였으나 INSERT 등에서 실패시 재시도를 위해서 라우팅함.")
             .build();
 
     public static final PropertyDescriptor DBCP_SERVICE = new PropertyDescriptor.Builder()
             .name("Database Connection Pooling Service")
-            .description("The Controller Service that is used to obtain connection to database")
+            .description("데이터베이스 연결에 필요한 커넥션 풀링 컨트롤러 서비스")
             .required(true)
             .identifiesControllerService(DBCPService.class)
             .build();
@@ -103,21 +107,21 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
             .displayName("Table Name")
             .description("데이터를 넣을 테이블명")
             .required(true)
+            .dependsOn(SCHEMA_NAME)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
     static final PropertyDescriptor AVRO_SCHEMA = new PropertyDescriptor.Builder()
             .name("avro-schema")
-            .displayName("AVRO Schema JSON")
-            .description("Record를 파싱하기 위한 Avro Schema JSON")
+            .displayName("Avro Schema JSON")
+            .description("Record를 파싱하기 위한 Avro Schema JSON. NiFi의 Record Reader의 Schema의 경우 Logical Data Type을 완전하게 포함하고 있지 않으므로(예; Deciaml의 precision, scale) 이를 확인하기 위해서 추가적으로 Avro Schema를 사용자가 입력한다.")
             .required(true)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
-
-    static final String PUT_DATABASE_RECORD_ERROR = "putdatabaserecord.error";
+    static final String BULK_INSERT_ERROR = "bulk.oracle.insert.error";
 
     protected Set<Relationship> relationships;
 
@@ -146,25 +150,30 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         return propDescriptors;
     }
 
+    /**
+     * DBCP Connection Pooling Service
+     */
     protected DBCPService dbcpService;
 
-    protected Schema schema;
-
     @OnScheduled
-    public void setup(ProcessContext context) {
+    public void onScheduled(ProcessContext context) {
         this.dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
-
-        final String avroSchemaJson = context.getProperty(AVRO_SCHEMA).evaluateAttributeExpressions().getValue();
-        Schema.Parser parser = new Schema.Parser();
-        this.schema = parser.parse(avroSchemaJson);
     }
 
     @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
+        /////////////////////////////////////////
+        // FlowFile 확인
+        /////////////////////////////////////////
+
         FlowFile flowFile = session.get();
         if (flowFile == null) {
             return;
         }
+
+        /////////////////////////////////////////
+        // INSERT SQL 생성 및 JDBC 처리
+        /////////////////////////////////////////
 
         Optional<Connection> connectionHolder = Optional.empty();
 
@@ -192,13 +201,14 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
                 relationship = REL_FAILURE;
             }
 
-            getLogger().error("Failed to put Records to database for {}. Routing to {}.", flowFile, relationship, e);
+            getLogger().error("FlowFile '{}'의 Bulk Insert 실패. {}으로 라우팅.", flowFile, relationship, e);
 
+            // Rollback할 것인가? 실패 처리할 것인가?
             final boolean rollbackOnFailure = context.getProperty(RollbackOnFailure.ROLLBACK_ON_FAILURE).asBoolean();
             if (rollbackOnFailure) {
                 session.rollback();
             } else {
-                flowFile = session.putAttribute(flowFile, PUT_DATABASE_RECORD_ERROR, e.getMessage());
+                flowFile = session.putAttribute(flowFile, BULK_INSERT_ERROR, e.getMessage());
                 session.transfer(flowFile, relationship);
             }
 
@@ -206,7 +216,7 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
                 try {
                     connection.rollback();
                 } catch (final Exception rollbackException) {
-                    getLogger().error("Failed to rollback JDBC transaction", rollbackException);
+                    getLogger().error("JDBC Transaction Rollback 실패", rollbackException);
                 }
             });
         } finally {
@@ -215,7 +225,7 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
                     try {
                         connection.setAutoCommit(true);
                     } catch (final Exception autoCommitException) {
-                        getLogger().warn("Failed to set auto-commit back to true on connection", autoCommitException);
+                        getLogger().warn("Auto Commit 설정 실패", autoCommitException);
                     }
                 });
             }
@@ -224,13 +234,23 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
                 try {
                     connection.close();
                 } catch (final Exception closeException) {
-                    getLogger().warn("Failed to close database connection", closeException);
+                    getLogger().warn("Database Connection 닫기 실패", closeException);
                 }
             });
         }
     }
 
+    /**
+     * Oracle Bulk Insert를 실행한다.
+     *
+     * @param context    Process Context
+     * @param session    Process Session
+     * @param flowFile   실제 데이터를 포함하는 (예; Avro) Flow File
+     * @param connection JDBC Connection
+     * @throws Exception Bulk Insert 및 FlowFile을 처리할 수 없는 경우
+     */
     private void bulkInsert(ProcessContext context, ProcessSession session, FlowFile flowFile, Connection connection) throws Exception {
+        // FlowFile의 Content에서 데이터를 로딩하기 위해서 Record Reader를 확인하고 Bulk Insert를 진행함
         try (final InputStream in = session.read(flowFile)) {
             final RecordReaderFactory recordReaderFactory = context.getProperty(RECORD_READER_FACTORY).asControllerService(RecordReaderFactory.class);
             final RecordReader recordReader = recordReaderFactory.createRecordReader(flowFile, in, getLogger());
@@ -238,13 +258,44 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         }
     }
 
+    /**
+     * Oracle Bulk Insert를 실행한다.
+     *
+     * @param context      Process Context
+     * @param flowFile     실제 데이터를 포함하는 (예; Avro) Flow File
+     * @param connection   JDBC Connection
+     * @param recordReader FlowFile의 Content에서 데이터를 로딩하기 위한 Record Reader
+     * @throws MalformedRecordException Record Reader가 스키마를 로딩할 수 없는 경우
+     * @throws IOException              Record Reader가 파일을 로딩할 수 없는 경우
+     * @throws SQLException             Bulk Insert를 실행할 수 없는 경우
+     */
     private void _bulkInsert(final ProcessContext context, final FlowFile flowFile, final Connection connection, final RecordReader recordReader)
-            throws IllegalArgumentException, MalformedRecordException, IOException, SQLException {
+            throws MalformedRecordException, IOException, SQLException {
+
+        /////////////////////////////////////////
+        // SQL 생성 및 처리에 필요한 옵션
+        /////////////////////////////////////////
 
         final String schemaName = context.getProperty(SCHEMA_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final String tableName = context.getProperty(TABLE_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final Integer maxBulkRowCount = context.getProperty(BULK_INSERT_ROWS).evaluateAttributeExpressions().asInteger();
+
+        /////////////////////////////////////////
+        // 사용자가 입력한 Avro Schema를 파싱한다.
+        /////////////////////////////////////////
+
+        final String avroSchemaJson = context.getProperty(AVRO_SCHEMA).evaluateAttributeExpressions().getValue();
+        Schema schema = new Schema.Parser().parse(avroSchemaJson);
+
+        ///////////////////////////////////////////////////////////////////////////////////
+        // FlowFile Content의 데이터를 처리하는 Record Reader가 해당 데이터의 Schema를 확인한다.
+        ///////////////////////////////////////////////////////////////////////////////////
+
         final RecordSchema recordSchema = recordReader.getSchema();
+
+        /////////////////////////////////////////
+        // SQL을 실행한다.
+        /////////////////////////////////////////
 
         try (final Statement statement = connection.createStatement()) {
             final int timeoutMillis = context.getProperty(QUERY_TIMEOUT).evaluateAttributeExpressions().asTimePeriod(TimeUnit.MILLISECONDS).intValue();
@@ -259,51 +310,95 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
 
             int count = 0;
             Record currentRecord;
-            List<Record> records = new ArrayList();
+            List<Record> records = new ArrayList<>();
             while ((currentRecord = recordReader.nextRecord()) != null) {
-                if (count >= maxBulkRowCount) {
-                    String sql = generateInsertQuery(schemaName, tableName, recordSchema, records);
+                if (count >= maxBulkRowCount) { // 한번에 처리하려는 ROW Count 만큼만 처리
+                    String sql = generateInsertQuery(schemaName, tableName, recordSchema, records, schema);
                     statement.execute(sql);
                     records.clear();
                 } else {
+                    // Max Bulk Row Count에 도달하지 않으면 무조건 데이터를 추가
                     records.add(currentRecord);
                     count++;
                 }
             }
 
+            // Max Bulk Row Count에 도달하지 않은 남은 데이터를 처리
             if (count > 0) {
-                String sql = generateInsertQuery(schemaName, tableName, recordSchema, records);
-                System.out.println(sql);
+                String sql = generateInsertQuery(schemaName, tableName, recordSchema, records, schema);
+                this.getLogger().info("Bulk Insert SQl : \n{}", sql);
                 statement.execute(sql);
                 records.clear();
             }
         }
     }
 
-    private String generateInsertQuery(String schemaName, String tableName, RecordSchema recordSchema, List<Record> records) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("INSERT ALL").append("\n");
-        builder.append(_generateInsertQuery(schemaName, tableName, recordSchema, records)).append("\n");
-        builder.append("SELECT 1 FROM dual;");
-        return builder.toString();
+    /**
+     * Oracle INSERT SQL 문을 생성한다.
+     *
+     * @param schemaName   스키마명
+     * @param tableName    테이블명
+     * @param recordSchema 레코드 스키마
+     * @param records      데이터
+     * @param schema       Avro Schema
+     * @return SQL
+     */
+    private String generateInsertQuery(String schemaName, String tableName, RecordSchema recordSchema, List<Record> records, Schema schema) {
+        String sql = "INSERT ALL" + "\n" +
+                _generateInsertQuery(schemaName, tableName, recordSchema, records, schema) + "\n" +
+                "SELECT 1 FROM dual;";
+        return sql;
     }
 
-    private String _generateInsertQuery(String schemaName, String tableName, RecordSchema recordSchema, List<Record> records) {
-        List<String> inserts = new ArrayList();
+    /**
+     * Insert All의 Sub Insert를 생성한다.
+     *
+     * @param schemaName   스키마명
+     * @param tableName    테이블명
+     * @param recordSchema 레코드 스키마
+     * @param records      N개 ROW
+     * @param schema       Avro Schema
+     * @return SQL
+     */
+    private String _generateInsertQuery(String schemaName, String tableName, RecordSchema recordSchema, List<Record> records, Schema schema) {
+        List<String> inserts = new ArrayList<>();
         for (Record record : records) {
-            inserts.add(getInsertSQL(schemaName, tableName, recordSchema, record));
+            inserts.add(getInsertSQL(schemaName, tableName, recordSchema, record, schema));
         }
         return Joiner.on("\n").join(inserts);
     }
 
-    private String getInsertSQL(String schemaName, String tableName, RecordSchema recordSchema, Record record) {
-        return String.format("INTO %s ( %s ) VALUES ( %s )", getTableName(schemaName, tableName), getColumns(recordSchema), getValues(recordSchema, record));
+    /**
+     * Insert All의 Sub Insert를 생성한다.
+     *
+     * @param schemaName   스키마명
+     * @param tableName    테이블명
+     * @param recordSchema 레코드 스키마
+     * @param record       1개 ROW
+     * @param schema       Avro Schema
+     * @return SQL
+     */
+    private String getInsertSQL(String schemaName, String tableName, RecordSchema recordSchema, Record record, Schema schema) {
+        return String.format("INTO %s ( %s ) VALUES ( %s )", getTableName(schemaName, tableName), getColumns(recordSchema), getValues(recordSchema, record, schema));
     }
 
+    /**
+     * 테이블명을 구성한다.
+     *
+     * @param schemaName 스키마명
+     * @param tableName  테이블명
+     * @return "스키마명.테이블명"
+     */
     private String getTableName(String schemaName, String tableName) {
         return String.format("%s.%s", schemaName, tableName);
     }
 
+    /**
+     * INSERT SQL을 구성하기 위한 컬럼명 목록을 구성한다.
+     *
+     * @param recordSchema 스키마
+     * @return 컬럼명 목록
+     */
     private String getColumns(RecordSchema recordSchema) {
         List<RecordField> fields = recordSchema.getFields();
         List<String> columns = new ArrayList<>();
@@ -313,29 +408,49 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         return Joiner.on(", ").join(columns);
     }
 
-    private String getValues(RecordSchema recordSchema, Record record) {
+    /**
+     * INSERT SQL을 구성하기 위해서 VALUES로 구성할 값 목록을 구성한다.
+     *
+     * @param recordSchema 스키마
+     * @param record       1개 ROW
+     * @param schema       Avro Schema
+     * @return 값 목록
+     */
+    private String getValues(RecordSchema recordSchema, Record record, Schema schema) {
         List<String> values = new ArrayList<>();
         List<RecordField> fields = recordSchema.getFields();
         for (RecordField field : fields) {
-            String value = getValue(field, record, recordSchema);
-            values.add("null".equals(value) ? "'NULL'" : value);
+            String value = getValue(field, record, schema);
+            values.add("null".equals(value) ? "'NULL'" : value); // ORACLE NULL 처리
         }
         return Joiner.on(", ").join(values);
     }
 
-    private String getValue(RecordField field, Record record, RecordSchema recordSchema) {
+    /**
+     * 해당 컬럼의 값을 반환한다. 이 메소드는 NiFi Record를 구성하는 Field의 Data Type을 기반으로 동작한다.
+     * Decimal인 경우 NiFi Record Schema에는 precision, scale이 정의되어 있지 않아서
+     * Avro Schema를 통해서 Decimal의 precision, scale을 확인해야 한다.
+     * Decimal은 Byte Array로 Avro File에 저장되어 있지만 이를 변환하려면 Big Decimal로 변환해야 하며
+     * 이때 Decimal의 precision, scale이 필요하다. 이러한 이유로 이 프로세서에서는 Avro Schema를 지정하도록 되어 있다.
+     *
+     * @param field  컬럼
+     * @param schema Avro Schema
+     * @param record 1개 ROW
+     * @return 값
+     */
+    private String getValue(RecordField field, Record record, Schema schema) {
         Conversions.DecimalConversion decimalConversion = new Conversions.DecimalConversion();
         switch (field.getDataType().getFieldType()) {
             case BYTE:
                 ByteBuffer value = (ByteBuffer) record.getValue(field.getFieldName());
-                Schema.Field f = this.schema.getField(field.getFieldName());
+                Schema.Field f = schema.getField(field.getFieldName());
                 LogicalType logicalType = getDecimalLogicalType(f);
                 if (logicalType != null) {
                     LogicalTypes.Decimal decimalType = (LogicalTypes.Decimal) logicalType;
-                    BigDecimal bigDecimal = decimalConversion.fromBytes(value, this.schema, decimalType);
+                    BigDecimal bigDecimal = decimalConversion.fromBytes(value, schema, decimalType);
                     return bigDecimal.toString();
                 } else {
-                    return bytesToString(value.array());
+                    return new String(value.array()); // TODO BYTE인 경우 요건에 맞춰서 처리해야 한다.
                 }
             case DATE:
             case TIME:
@@ -357,6 +472,13 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         }
     }
 
+    /**
+     * 지정한 컬럼이 Decimal Type인 경우 Decimal Type을 처리한다.
+     * Avro Schema에서 Null을 포함하는 경우 Null이 아닌 Decimal Logical Type에 대해서 반환한다.
+     *
+     * @param field 컬럼을 구성하는 필드
+     * @return Decimal Logical Type (Decimal이 아는 경우 NULL)
+     */
     private LogicalType getDecimalLogicalType(Schema.Field field) {
         Schema s = field.schema();
         if (s.getLogicalType() != null && "decimal".equals(s.getLogicalType().getName())) {
@@ -374,6 +496,12 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         return null;
     }
 
+    /**
+     * JDBC Database Metadata에서 JDBC URL을 반환한다.
+     *
+     * @param connection JDBC Connection
+     * @return JDBC URL
+     */
     private String getJdbcUrl(final Connection connection) {
         try {
             DatabaseMetaData databaseMetaData = connection.getMetaData();
@@ -381,22 +509,9 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
                 return databaseMetaData.getURL();
             }
         } catch (final Exception e) {
-            getLogger().warn("Could not determine JDBC URL based on the Driver Connection.", e);
+            getLogger().warn("JDBC Driver를 통해서 URL 확인 실패.", e);
         }
 
         return "DBCPService";
-    }
-
-    static public BigDecimal bytesToBigDecimal(byte[] buffer) {
-        String string = bytesToString(buffer);
-        return new BigDecimal(string);
-    }
-
-    static public String bytesToString(byte[] buffer) {
-        return bytesToString(buffer, 0, buffer.length);
-    }
-
-    static public String bytesToString(byte[] buffer, int index, int length) {
-        return new String(buffer, index, length);
     }
 }
