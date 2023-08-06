@@ -1,5 +1,9 @@
 package io.datadynamics.nifi.db.bulkinsert;
 
+import org.apache.avro.Conversions;
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
+import org.apache.avro.Schema;
 import org.apache.kudu.shaded.com.google.common.base.Joiner;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -22,6 +26,8 @@ import org.apache.nifi.serialization.record.RecordSchema;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -101,10 +107,17 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
+    static final PropertyDescriptor AVRO_SCHEMA = new PropertyDescriptor.Builder()
+            .name("avro-schema")
+            .displayName("AVRO Schema JSON")
+            .description("Record를 파싱하기 위한 Avro Schema JSON")
+            .required(true)
+            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
+
 
     static final String PUT_DATABASE_RECORD_ERROR = "putdatabaserecord.error";
-
-    protected DBCPService dbcpService;
 
     protected Set<Relationship> relationships;
 
@@ -129,12 +142,21 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         propDescriptors.add(SCHEMA_NAME);
         propDescriptors.add(TABLE_NAME);
         propDescriptors.add(RollbackOnFailure.ROLLBACK_ON_FAILURE);
+        propDescriptors.add(AVRO_SCHEMA);
         return propDescriptors;
     }
+
+    protected DBCPService dbcpService;
+
+    protected Schema schema;
 
     @OnScheduled
     public void setup(ProcessContext context) {
         this.dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
+
+        final String avroSchemaJson = context.getProperty(AVRO_SCHEMA).evaluateAttributeExpressions().getValue();
+        Schema.Parser parser = new Schema.Parser();
+        this.schema = parser.parse(avroSchemaJson);
     }
 
     @Override
@@ -222,7 +244,6 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         final String schemaName = context.getProperty(SCHEMA_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final String tableName = context.getProperty(TABLE_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final Integer maxBulkRowCount = context.getProperty(BULK_INSERT_ROWS).evaluateAttributeExpressions().asInteger();
-
         final RecordSchema recordSchema = recordReader.getSchema();
 
         try (final Statement statement = connection.createStatement()) {
@@ -253,7 +274,7 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
             if (count > 0) {
                 String sql = generateInsertQuery(schemaName, tableName, recordSchema, records);
                 System.out.println(sql);
-//                statement.execute(sql);
+                statement.execute(sql);
                 records.clear();
             }
         }
@@ -296,19 +317,31 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         List<String> values = new ArrayList<>();
         List<RecordField> fields = recordSchema.getFields();
         for (RecordField field : fields) {
-            values.add(getValue(field, record));
+            String value = getValue(field, record, recordSchema);
+            values.add("null".equals(value) ? "'NULL'" : value);
         }
         return Joiner.on(", ").join(values);
     }
 
-    private String getValue(RecordField field, Record record) {
+    private String getValue(RecordField field, Record record, RecordSchema recordSchema) {
+        Conversions.DecimalConversion decimalConversion = new Conversions.DecimalConversion();
         switch (field.getDataType().getFieldType()) {
+            case BYTE:
+                ByteBuffer value = (ByteBuffer) record.getValue(field.getFieldName());
+                Schema.Field f = this.schema.getField(field.getFieldName());
+                LogicalType logicalType = getDecimalLogicalType(f);
+                if (logicalType != null) {
+                    LogicalTypes.Decimal decimalType = (LogicalTypes.Decimal) logicalType;
+                    BigDecimal bigDecimal = decimalConversion.fromBytes(value, this.schema, decimalType);
+                    return bigDecimal.toString();
+                } else {
+                    return bytesToString(value.array());
+                }
             case DATE:
             case TIME:
             case TIMESTAMP:
                 return String.format("'%s'", String.valueOf(record.getValue(field.getFieldName())));
             case BIGINT:
-            case BYTE:
             case DECIMAL:
             case FLOAT:
             case SHORT:
@@ -324,6 +357,23 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         }
     }
 
+    private LogicalType getDecimalLogicalType(Schema.Field field) {
+        Schema s = field.schema();
+        if (s.getLogicalType() != null && "decimal".equals(s.getLogicalType().getName())) {
+            return s.getLogicalType();
+        } else {
+            if (s.getTypes() != null && s.getTypes().size() > 0) {
+                List<Schema> types = s.getTypes();
+                for (Schema type : types) {
+                    if (type.getLogicalType() != null && "decimal".equals(type.getLogicalType().getName())) {
+                        return type.getLogicalType();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     private String getJdbcUrl(final Connection connection) {
         try {
             DatabaseMetaData databaseMetaData = connection.getMetaData();
@@ -335,5 +385,18 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         }
 
         return "DBCPService";
+    }
+
+    static public BigDecimal bytesToBigDecimal(byte[] buffer) {
+        String string = bytesToString(buffer);
+        return new BigDecimal(string);
+    }
+
+    static public String bytesToString(byte[] buffer) {
+        return bytesToString(buffer, 0, buffer.length);
+    }
+
+    static public String bytesToString(byte[] buffer, int index, int length) {
+        return new String(buffer, index, length);
     }
 }
