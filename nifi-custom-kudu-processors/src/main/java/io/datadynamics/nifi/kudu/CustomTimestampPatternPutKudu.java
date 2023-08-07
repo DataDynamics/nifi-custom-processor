@@ -111,15 +111,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
             .defaultValue(FAILURE_STRATEGY_ROUTE.getValue())
             .build();
 
-    protected static final PropertyDescriptor SKIP_HEAD_LINE = new Builder()
-            .name("Skip head line")
-            .description("Deprecated. Used to ignore header lines, but this should be handled by a RecordReader (e.g. \"Treat First Line as Header\" property of CSVReader)")
-            .allowableValues("true", "false")
-            .defaultValue("false")
-            .required(true)
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .build();
-
     protected static final PropertyDescriptor LOWERCASE_FIELD_NAMES = new Builder()
             .name("Lowercase Field Names")
             .description("Kudu 테이블 컬럼의 인덱스를 찾을 때 컬럼명을 소문자로 변환")
@@ -279,7 +270,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
         properties.add(KUDU_MASTERS);
         properties.add(TABLE_NAME);
         properties.add(FAILURE_STRATEGY);
-        properties.add(SKIP_HEAD_LINE);
         properties.add(LOWERCASE_FIELD_NAMES);
         properties.add(HANDLE_SCHEMA_DRIFT);
         properties.add(RECORD_READER);
