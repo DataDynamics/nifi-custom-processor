@@ -1,2 +1,2 @@
-io.datadynamics.nifi.kudu.KstPutKudu
+io.datadynamics.nifi.kudu.CustomTimestampPatternPutKudu
 io.datadynamics.nifi.db.bulkinsert.BulkOracleInsertProcessor

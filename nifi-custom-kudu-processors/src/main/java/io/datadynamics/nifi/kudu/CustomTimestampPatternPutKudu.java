@@ -16,6 +16,7 @@
  */
 package io.datadynamics.nifi.kudu;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.*;
 import org.apache.nifi.annotation.behavior.*;
@@ -24,6 +25,7 @@ import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.*;
 import org.apache.nifi.components.PropertyDescriptor.Builder;
+import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
@@ -42,6 +44,7 @@ import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.RecordField;
 import org.apache.nifi.serialization.record.RecordFieldType;
 import org.apache.nifi.serialization.record.RecordSet;
+import org.apache.nifi.util.StringUtils;
 
 import javax.security.auth.login.LoginException;
 import java.io.InputStream;
@@ -61,7 +64,11 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.*;
 @CapabilityDescription("지정한 Record Reader를 사용하여 Incoming FlowFile에서 레코드를 읽고 해당 레코드를 지정된 Kudu의 테이블에 기록합니다. Kudu 테이블의 스키마는 Record Reader의 스키마를 활용합니다. " +
         "입력에서 레코드를 읽거나 Kudu에 레코드를 쓰는 동안 오류가 발생하면 FlowFile이 failure로 라우팅됩니다.")
 @WritesAttribute(attribute = "record.count", description = "Kudu에 기록한 레코드 수")
-public class KstPutKudu extends AbstractKuduProcessor {
+public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
+
+    protected static final Validator JsonValidator = new JsonValidator();
+
+    protected static final ObjectMapper mapper = new ObjectMapper();
 
     static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure", "Route to Failure",
             "The FlowFile containing the Records that failed to insert will be routed to the 'failure' relationship");
@@ -151,6 +158,15 @@ public class KstPutKudu extends AbstractKuduProcessor {
             .required(false)
             .addValidator(new RecordPathValidator())
             .expressionLanguageSupported(NONE)
+            .build();
+
+    static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
+            .name("kudu-column-timestamp-patterns")
+            .displayName("Apply Custom Column Timestamp Patterns (JSON)")
+            .description("Timestamp 컬럼에 Timestamp Format을 별도로 지정할 수 있습니다.")
+            .required(false)
+            .addValidator(JsonValidator)
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
 
     protected static final Validator OperationTypeValidator = new Validator() {
@@ -283,6 +299,7 @@ public class KstPutKudu extends AbstractKuduProcessor {
         properties.add(KERBEROS_CREDENTIALS_SERVICE);
         properties.add(KERBEROS_PRINCIPAL);
         properties.add(KERBEROS_PASSWORD);
+        properties.add(CUSTOM_COLUMN_TIMESTAMP_PATTERNS);
         return properties;
     }
 
@@ -328,14 +345,28 @@ public class KstPutKudu extends AbstractKuduProcessor {
             return;
         }
 
+        String customTimestampPatterns = context.getProperty(CUSTOM_COLUMN_TIMESTAMP_PATTERNS).evaluateAttributeExpressions().getValue();
+        TimestampFormatHolder holder = null;
+        if (!StringUtils.isEmpty(customTimestampPatterns)) {
+            try {
+                TimestampFormats timestampFormats = mapper.readValue(customTimestampPatterns, TimestampFormats.class);
+                holder = new TimestampFormatHolder(timestampFormats);
+            } catch (Exception e) {
+                getLogger().warn("Timestamp Pattern JSON을 파싱할 수 없습니다. JSON : \n{}", customTimestampPatterns, e);
+                session.transfer(flowFiles, REL_FAILURE);
+            }
+        }
+
+        final TimestampFormatHolder finalHolder = holder;
+
         final KerberosUser user = getKerberosUser();
         if (user == null) {
-            executeOnKuduClient(kuduClient -> processFlowFiles(context, session, flowFiles, kuduClient));
+            executeOnKuduClient(kuduClient -> processFlowFiles(context, session, flowFiles, kuduClient, finalHolder));
             return;
         }
 
         final PrivilegedExceptionAction<Void> privilegedAction = () -> {
-            executeOnKuduClient(kuduClient -> processFlowFiles(context, session, flowFiles, kuduClient));
+            executeOnKuduClient(kuduClient -> processFlowFiles(context, session, flowFiles, kuduClient, finalHolder));
             return null;
         };
 
@@ -343,7 +374,7 @@ public class KstPutKudu extends AbstractKuduProcessor {
         action.execute();
     }
 
-    private void processFlowFiles(final ProcessContext context, final ProcessSession session, final List<FlowFile> flowFiles, final KuduClient kuduClient) {
+    private void processFlowFiles(final ProcessContext context, final ProcessSession session, final List<FlowFile> flowFiles, final KuduClient kuduClient, TimestampFormatHolder holder) {
         final Map<FlowFile, Integer> processedRecords = new HashMap<>();
         final Map<FlowFile, Object> flowFileFailures = new HashMap<>();
         final Map<Operation, FlowFile> operationFlowFileMap = new HashMap<>();
@@ -359,7 +390,8 @@ public class KstPutKudu extends AbstractKuduProcessor {
                     session,
                     context,
                     kuduClient,
-                    kuduSession);
+                    kuduSession,
+                    holder);
         } finally {
             try {
                 flushKuduSession(kuduSession, true, pendingRowErrors);
@@ -385,7 +417,7 @@ public class KstPutKudu extends AbstractKuduProcessor {
                                 final ProcessSession session,
                                 final ProcessContext context,
                                 final KuduClient kuduClient,
-                                final KuduSession kuduSession) {
+                                final KuduSession kuduSession, TimestampFormatHolder holder) {
         final RecordReaderFactory recordReaderFactory = context.getProperty(RECORD_READER).asControllerService(RecordReaderFactory.class);
 
         int bufferedRecords = 0;
@@ -466,7 +498,7 @@ public class KstPutKudu extends AbstractKuduProcessor {
                         prevOperationType = operationType;
 
                         final List<String> fieldNames = dataRecord.getSchema().getFieldNames();
-                        Operation operation = createKuduOperation(operationType, dataRecord, fieldNames, ignoreNull, lowercaseFields, kuduTable);
+                        Operation operation = createKuduOperation(operationType, dataRecord, fieldNames, ignoreNull, lowercaseFields, kuduTable, holder);
                         // We keep track of mappings between Operations and their origins,
                         // so that we know which FlowFiles should be marked failure after buffered flush.
                         operationFlowFileMap.put(operation, flowFile);
@@ -631,7 +663,7 @@ public class KstPutKudu extends AbstractKuduProcessor {
 
     protected Operation createKuduOperation(OperationType operationType, Record record,
                                             List<String> fieldNames, boolean ignoreNull,
-                                            boolean lowercaseFields, KuduTable kuduTable) {
+                                            boolean lowercaseFields, KuduTable kuduTable, TimestampFormatHolder holder) {
         Operation operation;
         switch (operationType) {
             case INSERT:
@@ -664,7 +696,7 @@ public class KstPutKudu extends AbstractKuduProcessor {
             default:
                 throw new IllegalArgumentException(String.format("OperationType: %s not supported by Kudu", operationType));
         }
-        buildPartialRow(kuduTable.getSchema(), operation.getRow(), record, fieldNames, ignoreNull, lowercaseFields, addHour);
+        buildPartialRow(kuduTable.getSchema(), operation.getRow(), record, fieldNames, ignoreNull, lowercaseFields, addHour, holder);
         return operation;
     }
 

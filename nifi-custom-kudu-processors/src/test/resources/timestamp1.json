@@ -1,0 +1,9 @@
+{
+  "formats": [
+    {
+      "column-name": "COL_TIMESTAMP",
+      "timestamp-pattern": "yyyy-MM-dd HH:mm:ss",
+      "type": "TIMESTAMP_MILLIS"
+    }
+  ]
+}

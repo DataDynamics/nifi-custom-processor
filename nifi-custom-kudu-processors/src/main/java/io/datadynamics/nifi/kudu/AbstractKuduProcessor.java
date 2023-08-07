@@ -363,7 +363,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
         }
     }
 
-    protected void buildPartialRow(Schema schema, PartialRow row, Record record, List<String> fieldNames, boolean ignoreNull, boolean lowercaseFields, int addHour) {
+    protected void buildPartialRow(Schema schema, PartialRow row, Record record, List<String> fieldNames, boolean ignoreNull, boolean lowercaseFields, int addHour, TimestampFormatHolder holder) {
         for (String recordFieldName : fieldNames) {
             String colName = recordFieldName;
             if (lowercaseFields) {
@@ -410,7 +410,11 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                         break;
                     case UNIXTIME_MICROS:
                         final Optional<DataType> optionalDataType = record.getSchema().getDataType(recordFieldName);
-                        final Optional<String> optionalPattern = getTimestampPattern(optionalDataType);
+                        Optional<String> optionalPattern = getTimestampPattern(optionalDataType);
+                        String timestampPattern = holder.getPattern(recordFieldName);
+                        if (!StringUtils.isEmpty(timestampPattern)) { // FIXED Custom Timestamp Format이 있다면 그것을 사용한다.
+                            optionalPattern = Optional.of(timestampPattern);
+                        }
                         final Timestamp timestamp = TIMESTAMP_FIELD_CONVERTER.convertField(value, optionalPattern, recordFieldName, addHour); // FIXED
                         row.addTimestamp(columnIndex, timestamp);
                         break;
