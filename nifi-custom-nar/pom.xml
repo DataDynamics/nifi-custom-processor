@@ -30,7 +30,7 @@
     <dependencies>
         <dependency>
             <groupId>io.datadynamics.nifi.processor</groupId>
-            <artifactId>nifi-custom-kudu-processors</artifactId>
+            <artifactId>nifi-custom-processors</artifactId>
             <version>1.0.3</version>
         </dependency>
 
