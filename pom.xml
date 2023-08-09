@@ -9,13 +9,13 @@
     </parent>
 
     <groupId>io.datadynamics.nifi.processor</groupId>
-    <artifactId>nifi-custom-kudu-processor</artifactId>
+    <artifactId>nifi-custom-processor</artifactId>
     <version>1.0.3</version>
     <packaging>pom</packaging>
 
     <modules>
-        <module>nifi-custom-kudu-processors</module>
-        <module>nifi-custom-kudu-nar</module>
+        <module>nifi-custom-processors</module>
+        <module>nifi-custom-nar</module>
     </modules>
 
 </project>

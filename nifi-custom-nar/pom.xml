@@ -4,11 +4,11 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>io.datadynamics.nifi.processor</groupId>
-        <artifactId>nifi-custom-kudu-processor</artifactId>
+        <artifactId>nifi-custom-processor</artifactId>
         <version>1.0.3</version>
     </parent>
 
-    <artifactId>nifi-custom-kudu-nar</artifactId>
+    <artifactId>nifi-custom-nar</artifactId>
     <version>1.0.3</version>
     <packaging>nar</packaging>
 
@@ -30,7 +30,7 @@
     <dependencies>
         <dependency>
             <groupId>io.datadynamics.nifi.processor</groupId>
-            <artifactId>nifi-custom-kudu-processors</artifactId>
+            <artifactId>nifi-custom-processors</artifactId>
             <version>1.0.3</version>
         </dependency>
 

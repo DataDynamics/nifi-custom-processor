@@ -5,11 +5,11 @@
 
     <parent>
         <groupId>io.datadynamics.nifi.processor</groupId>
-        <artifactId>nifi-custom-kudu-processor</artifactId>
+        <artifactId>nifi-custom-processor</artifactId>
         <version>1.0.3</version>
     </parent>
 
-    <artifactId>nifi-custom-kudu-processors</artifactId>
+    <artifactId>nifi-custom-processors</artifactId>
     <packaging>jar</packaging>
 
     <properties>
