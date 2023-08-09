@@ -4,6 +4,16 @@
       "column-name": "COL_TIMESTAMP",
       "timestamp-pattern": "yyyy-MM-dd HH:mm:ss",
       "type": "TIMESTAMP_MILLIS"
+    },
+    {
+      "column-name": "COL_TIMESTAMP_MILLIS",
+      "timestamp-pattern": "yyyy-MM-dd HH:mm:ss.SSS",
+      "type": "TIMESTAMP_MILLIS"
+    },
+    {
+      "column-name": "COL_TIMESTAMP_MICROS",
+      "timestamp-pattern": "yyyy-MM-dd HH:mm:ss.SSSSSS",
+      "type": "TIMESTAMP_MICROS"
     }
   ]
 }
