@@ -1,0 +1,27 @@
+{
+  "namespace": "nifi",
+  "type": "record",
+  "name": "input",
+  "fields": [
+    {
+      "name": "COL_INT",
+      "type": ["null", "int"]
+    },
+    {
+      "name": "COL_FLOAT",
+      "type": ["null", "float"]
+    },
+    {
+      "name": "COL_TIMESTAMP",
+      "type": ["null", {"type": "string", "logicalType": "timestamp-millis"}]
+    },
+    {
+      "name": "COL_TIMESTAMP_MILLIS",
+      "type": ["null", {"type": "string", "logicalType": "timestamp-millis"}]
+    },
+    {
+      "name": "COL_TIMESTAMP_MICROS",
+      "type": ["null", {"type": "string", "logicalType": "timestamp-micros"}]
+    }
+  ]
+}
