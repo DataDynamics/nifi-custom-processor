@@ -1,4 +1,4 @@
-# NiFi Kudu Processor
+# NiFi Custom Processor
 
 이 프로젝트는 NiFi에서 사용할 수 있는 Kudu Processor를 구현한 NAR 프로젝트입니다.
 
@@ -17,45 +17,127 @@
 ## Deploy
 
 ```
-# cp nifi-custom-kudu-nar-1.0.3.nar <NIFI_HOME>/extentions
+# cp nifi-custom-nar-1.0.3.nar <NIFI_HOME>/extentions
 # systemctl restart nifi
 ```
 
 ## Processor
 
-### KstPutKudu
+### Custom Timestamp Pattern Put Kudu
 
-이 Processor는 PutKudu Processor가 Timestamp인 날짜를 지정할때 nanoseconds 단위의 데이터를 저장할 수 없으므로 이를 해결하기 위한 Processor이다. 
-단, 날짜 컬럼은 문자열로 넘겨받아야 하며 KstPutKudu에서 nanoseconds를 지원하는 Timestamp로 변환한다.
-이렇게 하는 근본적인 이유는 JDBC로 Timestamp 컬럼을 SELECT하는 경우 Timestamp 컬럼은 기본으로 millis로 처리하기 때문에 문자열로 반드시 캐스팅해야 한다.
+기존 Put Kudu는 다음의 문제점이 있습니다.
 
-ExecuteSQLRecord Processor에서 쿼리를 작성할 때에 다음과 같이 `c1` 컬럼이 Timestamp형인 경우 문자열로 조회한다.
+* Timestamp를 UTC 기준으로 처리
+* Timestamp Pattern 처리에 대한 기능 부족
+
+따라서 Custom Timestamp Pattern Put Kudu 모듈은 다음을 추가로 지원합니다.
+
+* String Timestamp 컬럼에 대해서 Timestamp Format을 커스텀하게 지정
+* Timestamp의 경우 Timestamp, Timestamp Millis, Timestamp Micro를 지원
+* PutKudu에서 Timestamp의 경우 UTC로 날짜가 변환되는 것을 조정할 수 있는 기능 추가
+
+테스트를 위해서 CSV 파일을 다음과 같이 작성합니다.
+
+```
+COL_INT,COL_FLOAT,COL_TIMESTAMP,COL_TIMESTAMP_MILLIS,COL_TIMESTAMP_MICROS
+1,1.1,2022-11-11 11:11:11,2022-11-11 11:11:11.111,2022-11-11 11:11:111111
+```
+
+해당 CSV 파일의 Avro Schema는 다음과 같으며 Timstamp는 문자열로 우선 처리를 하게 되므로 string으로 자료형을 지정합니다.
+
+```json
+{
+  "namespace": "nifi",
+  "type": "record",
+  "name": "input",
+  "fields": [
+    {
+      "name": "col_int",
+      "type": ["null", "int"]
+    },
+    {
+      "name": "col_float",
+      "type": ["null", "float"]
+    },
+    {
+      "name": "col_timestamp",
+      "type": ["null", {"type": "string", "logicalType": "timestamp-millis"}]
+    },
+    {
+      "name": "col_timestamp_millis",
+      "type": ["null", {"type": "string", "logicalType": "timestamp-millis"}]
+    },
+    {
+      "name": "col_timestamp_micros",
+      "type": ["null", {"type": "string", "logicalType": "timestamp-micros"}]
+    }
+  ]
+}
+```
+
+이제 데이터를 저장할 Kudu 테이블을 생성합니다.
 
 ```sql
-select cast(timestamp1 as char) as timestamp1 from test
+CREATE TABLE input
+(
+    col_int INT,
+    col_float FLOAT,
+    col_timestamp TIMESTAMP,
+    col_timestamp_millis TIMESTAMP,
+    col_timestamp_micros TIMESTAMP,
+    PRIMARY KEY(col_int)
+)
+PARTITION BY HASH PARTITIONS 16
+STORED AS KUDU;
 ```
 
-NanoTimestampSupportPutKudu Processor에서는 `timestamp1` 컬럼을 nanoseconds를 지원하도록 Timestamp로 변환하는데 이때 가장 중요한 것은 Kudu Table의 timestamp1 컬럼의 자료형이다.
-반드시 이 자료형이 Timestamp가 되어야만 nanoseconds로 변환한다.
+이제 Timestamp 컬럼에 대해서 문자열 Timestamp 컬럼을 파싱하기 위한 Timestamp Pattern을 다음과 같이 정의합니다.
 
-이제 Kudu에서 SQL로 test 테이블을 조회하면 다음과 같이 microseconds 및 nanoseconds를 지원하도록 Timestamp로 변환된다.
+```json
+{
+  "formats": [
+    {
+      "column-name": "col_timestamp",
+      "timestamp-pattern": "yyyy-MM-dd HH:mm:ss",
+      "type": "TIMESTAMP_MILLIS"
+    },
+    {
+      "column-name": "col_timestamp_millis",
+      "timestamp-pattern": "yyyy-MM-dd HH:mm:ss.SSS",
+      "type": "TIMESTAMP_MILLIS"
+    },
+    {
+      "column-name": "col_timestamp_micros",
+      "timestamp-pattern": "yyyy-MM-dd HH:mm:ss.SSSSSS",
+      "type": "TIMESTAMP_MICROS"
+    }
+  ]
+}
+```
+
+이제 Put Kudu를 실행하면 다음과 같이 UTC가 적용되어 -9시간으로 시간이 변경됩니다.
 
 ```
-[sem1.io:21000] default> select * from test;
-Query: select * from test
-Query submitted at: 2021-12-08 16:56:04 (Coordinator: http://sem1.io:25000)
-Query progress can be monitored at: http://sem1.io:25000/query_plan?query_id=c244d1b0435737e5:3a51767000000000
-+-------------------------------+
-| timestamp1                    |
-+-------------------------------+
-| 2021-11-11 02:11:11.111110000 |
-+-------------------------------+
-Fetched 1 row(s) in 0.13s
++---------+-------------------+---------------------+-------------------------------+-------------------------------+
+| col_int | col_float         | col_timestamp       | col_timestamp_millis          | col_timestamp_micros          |
++---------+-------------------+---------------------+-------------------------------+-------------------------------+
+| 1       | 1.100000023841858 | 2022-11-11 02:11:11 | 2022-11-11 02:11:11.111000000 | 2022-11-11 02:11:11.111111000 |
++---------+-------------------+---------------------+-------------------------------+-------------------------------+
+```
+
+Timestamp 컬럼의 시간을 +9로 입력하면 이제 11시로 정상적으로 표시됩니다.
+
+```
++---------+-------------------+---------------------+-------------------------------+-------------------------------+
+| col_int | col_float         | col_timestamp       | col_timestamp_millis          | col_timestamp_micros          |
++---------+-------------------+---------------------+-------------------------------+-------------------------------+
+| 1       | 1.100000023841858 | 2022-11-11 11:11:11 | 2022-11-11 11:11:11.111000000 | 2022-11-11 11:11:11.111111000 |
++---------+-------------------+---------------------+-------------------------------+-------------------------------+
 ```
 
 ### DatabaseProcessor
 
-DBCP Connection Pool을 이용한 SQL을 실행시키는 예제 Processor
+DBCP Connection Pool을 이용한 SQL을 실행시키는 예제 Processor입니다.
 
 #### Impala JDBC Driver
 
@@ -66,7 +148,7 @@ Impala JDBC Driver로 테스트를 위해서 `lib/ImpalaJDBC42.jar` 파일을 NI
 
 ### Bulk Oracle Insert Processor
 
-Bulk Oracle Insert Processor는 Record Reader를 통해서 수신한 Record를 Avro Parser를 통해 Avro Schema를 확인하여 다음의 Bulk Insert를 위한 SQL을 생성해서 INSERT한다.
+Bulk Oracle Insert Processor는 Record Reader를 통해서 수신한 Record를 Avro Parser를 통해 Avro Schema를 확인하여 다음의 Bulk Insert를 위한 SQL을 생성해서 INSERT합니다.
 
 ```
 INSERT ALL
