@@ -11,6 +11,7 @@
     <groupId>io.datadynamics.nifi.processor</groupId>
     <artifactId>nifi-custom-processor</artifactId>
     <version>1.0.3</version>
+    <name>Apache NiFi Custom Processors</name>
     <packaging>pom</packaging>
 
     <modules>

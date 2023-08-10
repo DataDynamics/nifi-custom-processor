@@ -18,6 +18,7 @@ package io.datadynamics.nifi.kudu;
 
 import org.apache.nifi.serialization.SimpleRecordSchema;
 import org.apache.nifi.serialization.record.*;
+import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.type.*;
 import org.apache.nifi.serialization.record.util.DataTypeSet;
 import org.apache.nifi.serialization.record.util.IllegalTypeConversionException;
