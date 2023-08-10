@@ -4,23 +4,23 @@
   "name": "input",
   "fields": [
     {
-      "name": "COL_INT",
+      "name": "col_int",
       "type": ["null", "int"]
     },
     {
-      "name": "COL_FLOAT",
+      "name": "col_float",
       "type": ["null", "float"]
     },
     {
-      "name": "COL_TIMESTAMP",
+      "name": "col_timestamp",
       "type": ["null", {"type": "string", "logicalType": "timestamp-millis"}]
     },
     {
-      "name": "COL_TIMESTAMP_MILLIS",
+      "name": "col_timestamp_millis",
       "type": ["null", {"type": "string", "logicalType": "timestamp-millis"}]
     },
     {
-      "name": "COL_TIMESTAMP_MICROS",
+      "name": "col_timestamp_micros",
       "type": ["null", {"type": "string", "logicalType": "timestamp-micros"}]
     }
   ]

@@ -1,17 +1,17 @@
 {
   "formats": [
     {
-      "column-name": "COL_TIMESTAMP",
+      "column-name": "col_timestamp",
       "timestamp-pattern": "yyyy-MM-dd HH:mm:ss",
       "type": "TIMESTAMP_MILLIS"
     },
     {
-      "column-name": "COL_TIMESTAMP_MILLIS",
+      "column-name": "col_timestamp_millis",
       "timestamp-pattern": "yyyy-MM-dd HH:mm:ss.SSS",
       "type": "TIMESTAMP_MILLIS"
     },
     {
-      "column-name": "COL_TIMESTAMP_MICROS",
+      "column-name": "col_timestamp_micros",
       "timestamp-pattern": "yyyy-MM-dd HH:mm:ss.SSSSSS",
       "type": "TIMESTAMP_MICROS"
     }

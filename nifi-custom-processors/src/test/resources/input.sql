@@ -1,11 +1,11 @@
 CREATE TABLE input
 (
-    COL_INT INT,
-    COL_FLOAT FLOAT,
-    COL_TIMESTAMP TIMESTAMP,
-    COL_TIMESTAMP_MILLIS TIMESTAMP,
-    COL_TIMESTAMP_MICROS TIMESTAMP,
-    PRIMARY KEY(COL_INT)
+    col_int INT,
+    col_float FLOAT,
+    col_timestamp TIMESTAMP,
+    col_timestamp_millis TIMESTAMP,
+    col_timestamp_micros TIMESTAMP,
+    PRIMARY KEY(col_int)
 )
 PARTITION BY HASH PARTITIONS 16
 STORED AS KUDU;
