@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>nifi-custom-nar</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
     <packaging>nar</packaging>
 
     <properties>
