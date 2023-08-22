@@ -336,6 +336,8 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
         }
 
         String customTimestampPatterns = context.getProperty(CUSTOM_COLUMN_TIMESTAMP_PATTERNS).evaluateAttributeExpressions().getValue();
+        getLogger().info("Custom Timestamp Format : \n{}", customTimestampPatterns);
+
         TimestampFormatHolder holder = null;
         if (!StringUtils.isEmpty(customTimestampPatterns)) {
             try {
@@ -407,7 +409,9 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
                                 final ProcessSession session,
                                 final ProcessContext context,
                                 final KuduClient kuduClient,
-                                final KuduSession kuduSession, TimestampFormatHolder holder) {
+                                final KuduSession kuduSession,
+                                final TimestampFormatHolder holder) {
+
         final RecordReaderFactory recordReaderFactory = context.getProperty(RECORD_READER).asControllerService(RecordReaderFactory.class);
 
         int bufferedRecords = 0;

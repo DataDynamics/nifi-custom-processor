@@ -391,7 +391,8 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             } else {
                 Object value = record.getValue(recordFieldName);
                 final Optional<DataType> fieldDataType = record.getSchema().getDataType(recordFieldName);
-                final String dataTypeFormat = fieldDataType.map(DataType::getFormat).orElse(null);
+                String dataTypeFormat = holder.getPattern(recordFieldName) == null ? fieldDataType.map(DataType::getFormat).orElse(null) : holder.getPattern(recordFieldName);
+                getLogger().info("{}", String.format("Record Field Name : {} ==> Type : {}, Date Format : {}", recordFieldName, colType, dataTypeFormat));
                 switch (colType) {
                     case BOOL:
                         row.addBoolean(columnIndex, DataTypeUtils.toBoolean(value, recordFieldName));
@@ -410,11 +411,13 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                         break;
                     case UNIXTIME_MICROS:
                         final Optional<DataType> optionalDataType = record.getSchema().getDataType(recordFieldName);
-                        Optional<String> optionalPattern = getTimestampPattern(optionalDataType);
-                        String timestampPattern = holder.getPattern(recordFieldName);
-                        if (!StringUtils.isEmpty(timestampPattern)) { // FIXED Custom Timestamp Format이 있다면 그것을 사용한다.
-                            optionalPattern = Optional.of(timestampPattern);
+                        Optional<String> optionalPattern = null;
+                        if (holder.getPattern(recordFieldName) == null) {
+                            optionalPattern = getTimestampPattern(optionalDataType);
+                        } else {
+                            optionalPattern = Optional.of(holder.getPattern(recordFieldName));
                         }
+                        getLogger().info("{}", String.format("[Timestamp] Record Field Name : {} ==> Type : {}, Date Format : {}", recordFieldName, colType, optionalPattern.get()));
                         final Timestamp timestamp = TIMESTAMP_FIELD_CONVERTER.convertField(value, optionalPattern, recordFieldName, addHour); // FIXED
                         row.addTimestamp(columnIndex, timestamp);
                         break;
