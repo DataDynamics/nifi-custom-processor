@@ -1,1 +1,2 @@
 io.datadynamics.nifi.record.parquet.TimestampFormatParquetRecordSetWriter
+io.datadynamics.nifi.record.avro.TimestampFormatAvroRecordSetWriter
