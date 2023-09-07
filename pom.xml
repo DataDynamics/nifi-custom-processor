@@ -5,12 +5,12 @@
     <parent>
         <groupId>org.apache.nifi</groupId>
         <artifactId>nifi-nar-bundles</artifactId>
-        <version>1.18.0</version>
+        <version>1.23.2</version>
     </parent>
 
     <groupId>io.datadynamics.nifi.processor</groupId>
     <artifactId>nifi-custom-processor</artifactId>
-    <version>1.0.4</version>
+    <version>1.0.5</version>
     <name>Apache NiFi Custom Processors</name>
     <packaging>pom</packaging>
 

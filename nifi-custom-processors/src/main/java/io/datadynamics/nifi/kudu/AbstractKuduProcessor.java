@@ -42,6 +42,8 @@ import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.RecordFieldType;
 import org.apache.nifi.serialization.record.type.DecimalDataType;
 import org.apache.nifi.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -57,6 +59,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
 public abstract class AbstractKuduProcessor extends AbstractProcessor {
+
+    Logger logger = LoggerFactory.getLogger(AbstractProcessor.class);
 
     static final PropertyDescriptor KUDU_MASTERS = new Builder()
             .name("Kudu Masters")
