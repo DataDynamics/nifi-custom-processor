@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -8,15 +9,17 @@
         <version>1.23.2</version>
     </parent>
 
-    <groupId>io.datadynamics.nifi.processor</groupId>
-    <artifactId>nifi-custom-processor</artifactId>
+    <groupId>io.datadynamics.nifi</groupId>
+    <artifactId>nifi-custom-services</artifactId>
     <version>1.0.5</version>
-    <name>Apache NiFi Custom Processors</name>
+    <name>Apache NiFi Custom Services</name>
     <packaging>pom</packaging>
 
     <modules>
         <module>nifi-custom-processors</module>
-        <module>nifi-custom-nar</module>
+        <module>nifi-custom-controllers</module>
+        <module>nifi-custom-processors-nar</module>
+        <module>nifi-custom-controllers-nar</module>
     </modules>
 
 </project>

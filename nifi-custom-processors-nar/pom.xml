@@ -3,12 +3,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>io.datadynamics.nifi.processor</groupId>
-        <artifactId>nifi-custom-processor</artifactId>
+        <groupId>io.datadynamics.nifi</groupId>
+        <artifactId>nifi-custom-services</artifactId>
         <version>1.0.5</version>
     </parent>
 
-    <artifactId>nifi-custom-nar</artifactId>
+    <artifactId>nifi-custom-processors-nar</artifactId>
     <version>1.0.5</version>
     <packaging>nar</packaging>
 
@@ -29,7 +29,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.datadynamics.nifi.processor</groupId>
+            <groupId>io.datadynamics.nifi</groupId>
             <artifactId>nifi-custom-processors</artifactId>
             <version>1.0.5</version>
         </dependency>
