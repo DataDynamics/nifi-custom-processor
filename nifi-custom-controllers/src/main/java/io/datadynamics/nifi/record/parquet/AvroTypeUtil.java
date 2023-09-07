@@ -556,20 +556,20 @@ public class AvroTypeUtil {
     }
 
     public static GenericRecord createAvroRecord(final Record record, final Schema avroSchema, final Charset charset, String timestampFormatPropertyKeyName, int addHours) throws IOException {
-        if (logger.isInfoEnabled()) {
-            logger.info("[DFM] createAvroRecord(final Record record, final Schema avroSchema, final Charset charset, String timestampFormatPropertyKeyName, int addHours)");
+        if (logger.isDebugEnabled()) {
+            logger.debug("[DFM] createAvroRecord(final Record record, final Schema avroSchema, final Charset charset, String timestampFormatPropertyKeyName, int addHours)");
         }
 
         final GenericRecord rec = new GenericData.Record(avroSchema);
         final RecordSchema recordSchema = record.getSchema();
 
         final Map<String, Object> recordValues = record.toMap();
-        if (logger.isInfoEnabled()) {
-            logger.info("[DFM] Record Values : {}", recordValues);
+        if (logger.isDebugEnabled()) {
+            logger.debug("[DFM] Record Values : {}", recordValues);
         }
         for (final Map.Entry<String, Object> entry : recordValues.entrySet()) {
-            if (logger.isInfoEnabled()) {
-                logger.info("[DFM] Step 1 : {}", entry);
+            if (logger.isDebugEnabled()) {
+                logger.debug("[DFM] Step 1 : {}", entry);
             }
 
             final Object rawValue = entry.getValue();
@@ -609,15 +609,15 @@ public class AvroTypeUtil {
         for (final Field field : avroSchema.getFields()) {
             final Object defaultValue = field.defaultVal();
             if (defaultValue == null || defaultValue == JsonProperties.NULL_VALUE) {
-                if (logger.isInfoEnabled()) {
-                    logger.info("[DFM] Step 2 : {}", String.format("Field '%s' : default value is null", field.name()));
+                if (logger.isDebugEnabled()) {
+                    logger.debug("[DFM] Step 2 : {}", String.format("Field '%s' : default value is null", field.name()));
                 }
                 continue;
             }
 
             if (rec.get(field.name()) == null) {
-                if (logger.isInfoEnabled()) {
-                    logger.info("[DFM] Step 2 : {}", String.format("Field '%s' is null", field.name()));
+                if (logger.isDebugEnabled()) {
+                    logger.debug("[DFM] Step 2 : {}", String.format("Field '%s' is null", field.name()));
                 }
 
                 // The default value may not actually be the proper value for Avro. For example, the schema may indicate that we need a long but provide a default value of 0.
@@ -636,35 +636,35 @@ public class AvroTypeUtil {
         if (StringUtils.isEmpty(timestampFormatPropertyKeyName)) {
             // 별도 설정이 없으면 기본값을 적용한다.
             timestampPattern = DEFAULT_TIMESTAMP_FORMAT;
-            if (logger.isInfoEnabled()) {
-                logger.info("[DFM] {} = {}", "Timestamp Format [Key is NULL]", timestampPattern);
+            if (logger.isDebugEnabled()) {
+                logger.debug("[DFM] {} = {}", "Timestamp Format [Key is NULL]", timestampPattern);
             }
         } else {
             if (avroSchema.getObjectProp(timestampFormatPropertyKeyName) == null) {
                 // 별도 설정이 없으면 기본값을 적용한다.
                 timestampPattern = DEFAULT_TIMESTAMP_FORMAT;
-                if (logger.isInfoEnabled()) {
-                    logger.info("[DFM] {} = {}", "Timestamp Format [Key's value is NULL]", timestampPattern);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("[DFM] {} = {}", "Timestamp Format [Key's value is NULL]", timestampPattern);
                 }
             } else {
                 Map props = (Map) avroSchema.getObjectProp(timestampFormatPropertyKeyName.trim());
                 if (props.containsKey("column.all.pattern")) {
                     // 전체가 일괄 적용하는 속성이 있다면 일괄 적용한다.
                     timestampPattern = (String) props.get("column.all.pattern");
-                    if (logger.isInfoEnabled()) {
-                        logger.info("[DFM] Timestamp Format 'ALL' = {}", timestampPattern);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("[DFM] Timestamp Format 'ALL' = {}", timestampPattern);
                     }
                 } else {
                     if (props.containsKey(String.format("column.%s.pattern", fieldName))) {
                         // 컬럼별로 적용해야 한다면 컬럼으로 찾는다.
                         timestampPattern = (String) props.get(String.format("column.%s.pattern", fieldName));
-                        if (logger.isInfoEnabled()) {
-                            logger.info("[DFM] Timestamp Format '{}' = {}", String.format("column.%s.pattern", fieldName), timestampPattern);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("[DFM] Timestamp Format '{}' = {}", String.format("column.%s.pattern", fieldName), timestampPattern);
                         }
                     } else {
                         // 컬럼별로 적용할 것도 없다면 기본값을 그대로 사용한다.
-                        if (logger.isInfoEnabled()) {
-                            logger.info("[DFM] Timestamp Format '{}' = {}", String.format("column.%s.pattern", fieldName), DEFAULT_TIMESTAMP_FORMAT);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("[DFM] Timestamp Format '{}' = {}", String.format("column.%s.pattern", fieldName), DEFAULT_TIMESTAMP_FORMAT);
                         }
                         timestampPattern = DEFAULT_TIMESTAMP_FORMAT;
                     }
@@ -721,15 +721,15 @@ public class AvroTypeUtil {
     private static Long getLongFromTimestamp(final Object rawValue, final Schema fieldSchema, final String fieldName, String timestampFormat) {
         if (StringUtils.isEmpty(timestampFormat)) {
             final String format = AvroTypeUtil.determineDataType(fieldSchema).getFormat();
-            if (logger.isInfoEnabled()) {
-                logger.info("[DFM] Timestamp Format is empty. Timestamp Format = {}", format);
+            if (logger.isDebugEnabled()) {
+                logger.debug("[DFM] Timestamp Format is empty. Timestamp Format = {}", format);
             }
 
             Timestamp t = DataTypeUtils.toTimestamp(rawValue, () -> DataTypeUtils.getDateFormat(format), fieldName);
             return t.getTime();
         } else {
-            if (logger.isInfoEnabled()) {
-                logger.info("[DFM] Timestamp Format = {}", timestampFormat);
+            if (logger.isDebugEnabled()) {
+                logger.debug("[DFM] Timestamp Format = {}", timestampFormat);
             }
 
             Timestamp t = DataTypeUtils.toTimestamp(rawValue, () -> DataTypeUtils.getDateFormat(timestampFormat.trim()), fieldName);
@@ -740,8 +740,8 @@ public class AvroTypeUtil {
     @SuppressWarnings("unchecked")
     private static Object _convertToAvroObject(final Object rawValue, final Schema fieldSchema, final String fieldName, final Charset charset,
                                                final String timestampPattern, int addHours) {
-        if (logger.isInfoEnabled()) {
-            logger.info("[DFM] RAW Value = {}, Field Schema = {}, Field Name = {}, Timestamp Pattern = {}, Add Hours = {}, Type = {}", new Object[]{
+        if (logger.isDebugEnabled()) {
+            logger.debug("[DFM] RAW Value = {}, Field Schema = {}, Field Name = {}, Timestamp Pattern = {}, Add Hours = {}, Type = {}", new Object[]{
                     rawValue, fieldSchema, fieldName, timestampPattern, addHours, fieldSchema.getType()
             });
         }
@@ -776,8 +776,8 @@ public class AvroTypeUtil {
                 final LogicalType logicalType = fieldSchema.getLogicalType();
                 if (logicalType == null) {
                     Long result = DataTypeUtils.toLong(rawValue, fieldName);
-                    if (logger.isInfoEnabled()) {
-                        logger.info("[DFM] Raw Value = {}, Value = {}", rawValue, result);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("[DFM] Raw Value = {}, Value = {}", rawValue, result);
                     }
                     return result;
                 }
@@ -788,8 +788,8 @@ public class AvroTypeUtil {
                     final Date date = new Date(longValue);
                     final Duration duration = Duration.between(date.toInstant().truncatedTo(ChronoUnit.DAYS), date.toInstant());
                     long result = duration.toMillis() * 1000L;
-                    if (logger.isInfoEnabled()) {
-                        logger.info("[DFM] [TIME_MICROS] Raw Value = {}, Original Value = {}, Converted Value = {}", new Object[]{
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("[DFM] [TIME_MICROS] Raw Value = {}, Original Value = {}, Converted Value = {}", new Object[]{
                                 rawValue, longValue, result
                         });
                     }
@@ -797,8 +797,8 @@ public class AvroTypeUtil {
                 } else if (LOGICAL_TYPE_TIMESTAMP_MILLIS.equals(logicalType.getName())) {
                     Long longFromTimestamp = getLongFromTimestamp(rawValue, fieldSchema, fieldName, timestampPattern);
                     long result = longFromTimestamp + (((addHours * 60 * 60) + 0) * 1000);
-                    if (logger.isInfoEnabled()) {
-                        logger.info("[DFM] [TIMESTAMP_MILLIS] Raw Value = {}, Original Value = {}, Converted Value = {}, Timestamp Pattern = {}", new Object[]{
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("[DFM] [TIMESTAMP_MILLIS] Raw Value = {}, Original Value = {}, Converted Value = {}, Timestamp Pattern = {}", new Object[]{
                                 rawValue, longFromTimestamp, result, timestampPattern
                         });
                     }
@@ -806,8 +806,8 @@ public class AvroTypeUtil {
                 } else if (LOGICAL_TYPE_TIMESTAMP_MICROS.equals(logicalType.getName())) {
                     long longFromTimestamp = getLongFromTimestamp(rawValue, fieldSchema, fieldName, timestampPattern) * 1000L;
                     long result = longFromTimestamp + (((addHours * 60 * 60) + 0) * 1000);
-                    if (logger.isInfoEnabled()) {
-                        logger.info("[DFM] [TIMESTAMP_MICROS] Raw Value = {}, Original Value = {}, Converted Value = {}, Timestamp Pattern = {}", new Object[]{
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("[DFM] [TIMESTAMP_MICROS] Raw Value = {}, Original Value = {}, Converted Value = {}, Timestamp Pattern = {}", new Object[]{
                                 rawValue, longFromTimestamp, result, timestampPattern
                         });
                     }
@@ -1227,8 +1227,8 @@ public class AvroTypeUtil {
             }
         }
 
-        if (logger.isInfoEnabled()) { // FIXED
-            logger.info("[AvroRecordReader] Record = {}, Schema = {}, Output = {}", new Object[]{
+        if (logger.isDebugEnabled()) { // FIXED
+            logger.debug("[AvroRecordReader] Record = {}, Schema = {}, Output = {}", new Object[]{
                     avroRecord, recordSchema, values
             });
         }
@@ -1292,8 +1292,8 @@ public class AvroTypeUtil {
                 }
             } catch (Exception e) {
                 // If failed with one of possible types, continue with the next available option.
-                if (logger.isInfoEnabled()) {
-                    logger.info("Cannot convert value {} to type {}", originalValue, desiredDataType, e);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Cannot convert value {} to type {}", originalValue, desiredDataType, e);
                 }
             }
         }

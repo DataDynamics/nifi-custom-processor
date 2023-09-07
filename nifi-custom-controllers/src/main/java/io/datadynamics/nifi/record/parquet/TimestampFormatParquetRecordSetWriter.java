@@ -9,6 +9,7 @@ import org.apache.nifi.annotation.lifecycle.OnEnabled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.controller.ConfigurationContext;
 import org.apache.nifi.expression.ExpressionLanguageScope;
+import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
@@ -95,8 +96,8 @@ public class TimestampFormatParquetRecordSetWriter extends SchemaRegistryRecordS
             addHours = 0;
         }
 
-        if (getLogger().isInfoEnabled()) {
-            getLogger().info("[DFM] TimestampFormatParquetRecordSetWriter : Timestamp Pattern Property Key Name = {}, Add Hour = {}", timestampFormatPropertyKeyName, addHours);
+        if (getLogger().isDebugEnabled()) {
+            getLogger().debug("[DFM] TimestampFormatParquetRecordSetWriter : Timestamp Pattern Property Key Name = {}, Add Hour = {}", timestampFormatPropertyKeyName, addHours);
         }
     }
 
@@ -128,6 +129,11 @@ public class TimestampFormatParquetRecordSetWriter extends SchemaRegistryRecordS
         } catch (final SchemaNotFoundException e) {
             throw new ProcessException("Could not determine the Avro Schema to use for writing the content", e);
         }
+    }
+
+    @Override
+    public RecordSetWriter createWriter(ComponentLog logger, RecordSchema schema, OutputStream out, FlowFile flowFile) throws SchemaNotFoundException, IOException {
+        return RecordSetWriterFactory.super.createWriter(logger, schema, out, flowFile);
     }
 
     @Override
