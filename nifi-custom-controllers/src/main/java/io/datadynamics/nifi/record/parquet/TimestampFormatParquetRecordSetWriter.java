@@ -6,7 +6,6 @@ import org.apache.avro.Schema;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnEnabled;
-import org.apache.nifi.avro.AvroTypeUtil;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.controller.ConfigurationContext;
 import org.apache.nifi.expression.ExpressionLanguageScope;
@@ -96,8 +95,8 @@ public class TimestampFormatParquetRecordSetWriter extends SchemaRegistryRecordS
             addHours = 0;
         }
 
-        if (getLogger().isDebugEnabled()) {
-            getLogger().debug("[DFM] ParquetRecordSetWriter : Timestamp Pattern Property Key Name = {}, Add Hour = {}", timestampFormatPropertyKeyName, addHours);
+        if (getLogger().isInfoEnabled()) {
+            getLogger().info("[DFM] TimestampFormatParquetRecordSetWriter : Timestamp Pattern Property Key Name = {}, Add Hour = {}", timestampFormatPropertyKeyName, addHours);
         }
     }
 
@@ -145,6 +144,8 @@ public class TimestampFormatParquetRecordSetWriter extends SchemaRegistryRecordS
         properties.add(ParquetUtils.WRITER_VERSION);
         properties.add(ParquetUtils.AVRO_WRITE_OLD_LIST_STRUCTURE);
         properties.add(ParquetUtils.AVRO_ADD_LIST_ELEMENT_RECORDS);
+        properties.add(TIMESTAMP_FORMAT_PROPERTY_NAME);
+        properties.add(ADD_HOURS);
         properties.add(INT96_FIELDS);
         return properties;
     }

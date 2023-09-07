@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="nar-deploy">
 
+    <target name="NAR">
+        <echo message="Copying NAR to NiFi Extensions"/>
+
+        <scp trust="true" todir="root:dd98969321@10.0.1.233:/home/nifi/nifi/extensions" failonerror="true">
+            <fileset dir="nifi-custom-controllers-nar/target">
+                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+            </fileset>
+        </scp>
+    </target>
+
     <target name="NAR-CONTROLLERS">
         <echo message="Copying NAR to NiFi Extensions"/>
 

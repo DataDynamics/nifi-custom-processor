@@ -45,16 +45,16 @@ public class WriteParquetResult extends AbstractRecordSetWriter {
         ParquetUtils.applyCommonConfig(writerBuilder, conf, parquetConfig);
         parquetWriter = writerBuilder.build();
 
-        if (componentLogger.isDebugEnabled()) { // FIXED
-            componentLogger.debug("[DFM] WriteParquetResult : Schema = {}", schema);
-            componentLogger.debug("[DFM] WriteParquetResult : timestampFormatPropertyKeyName = {}, addHours = {}", this.timestampFormatPropertyKeyName, this.addHours);
+        if (componentLogger.isInfoEnabled()) { // FIXED
+            componentLogger.info("[DFM] WriteParquetResult : Schema = {}", schema);
+            componentLogger.info("[DFM] WriteParquetResult : timestampFormatPropertyKeyName = {}, addHours = {}", this.timestampFormatPropertyKeyName, this.addHours);
         }
     }
 
     @Override
     protected Map<String, String> writeRecord(final Record record) throws IOException {
-        if (componentLogger.isDebugEnabled()) {
-            this.componentLogger.debug("[DFM] Record = {}", record);
+        if (componentLogger.isInfoEnabled()) {
+            this.componentLogger.info("[DFM] [Write] Record = {}", record);
         }
 
         final GenericRecord genericRecord = AvroTypeUtil.createAvroRecord(record, schema, timestampFormatPropertyKeyName, addHours);
