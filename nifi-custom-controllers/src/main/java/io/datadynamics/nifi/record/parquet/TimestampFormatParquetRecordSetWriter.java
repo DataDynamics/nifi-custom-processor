@@ -28,7 +28,7 @@ import java.util.Optional;
 
 @Tags({"custom", "timestamp", "datadynamics", "parquet", "result", "set", "writer", "serializer", "record", "recordset", "row"})
 @CapabilityDescription("Writes the contents of a RecordSet in Parquet format.")
-public class ParquetRecordSetWriter extends SchemaRegistryRecordSetWriter implements RecordSetWriterFactory {
+public class TimestampFormatParquetRecordSetWriter extends SchemaRegistryRecordSetWriter implements RecordSetWriterFactory {
 
     public static final PropertyDescriptor CACHE_SIZE = new PropertyDescriptor.Builder()
             .name("cache-size")
