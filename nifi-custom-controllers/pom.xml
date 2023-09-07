@@ -16,6 +16,7 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
 
+        <kudu.version>1.16.0</kudu.version>
         <hadoop.version>3.3.6</hadoop.version>
     </properties>
 
