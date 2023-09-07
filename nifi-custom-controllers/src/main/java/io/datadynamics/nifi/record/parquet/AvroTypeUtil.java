@@ -599,7 +599,7 @@ public class AvroTypeUtil {
             }
 
             final String fieldName = field.name();
-            String timestampPattern = getTimestampPattern(avroSchema, timestampFormatPropertyKeyName, fieldName);
+            String timestampPattern = getTimestampPattern(avroSchema, timestampFormatPropertyKeyName, fieldName); // FIXED
             final Object converted = _convertToAvroObject(rawValue, field.schema(), fieldName, charset, timestampPattern, addHours); // FIXED
             rec.put(fieldName, converted);
         }
@@ -801,8 +801,8 @@ public class AvroTypeUtil {
                 } else if (LOGICAL_TYPE_TIMESTAMP_MILLIS.equals(logicalType.getName())) {
                     Long longFromTimestamp = getLongFromTimestamp(rawValue, fieldSchema, fieldName, timestampPattern);
                     long result = longFromTimestamp + (((addHours * 60 * 60) + 0) * 1000);
-                    if (logger.isInfoEnabled()) {
-                        logger.info("[DFM] [TIMESTAMP_MILLIS] Raw Value = {}, Original Value = {}, Converted Value = {}, Timestamp Pattern = {}", new Object[]{
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("[DFM] [TIMESTAMP_MILLIS] Raw Value = {}, Original Value = {}, Converted Value = {}, Timestamp Pattern = {}", new Object[]{
                                 rawValue, longFromTimestamp, result, timestampPattern
                         });
                     }
@@ -810,8 +810,8 @@ public class AvroTypeUtil {
                 } else if (LOGICAL_TYPE_TIMESTAMP_MICROS.equals(logicalType.getName())) {
                     long longFromTimestamp = getLongFromTimestamp(rawValue, fieldSchema, fieldName, timestampPattern) * 1000L;
                     long result = longFromTimestamp + (((addHours * 60 * 60) + 0) * 1000);
-                    if (logger.isInfoEnabled()) {
-                        logger.info("[DFM] [TIMESTAMP_MICROS] Raw Value = {}, Original Value = {}, Converted Value = {}, Timestamp Pattern = {}", new Object[]{
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("[DFM] [TIMESTAMP_MICROS] Raw Value = {}, Original Value = {}, Converted Value = {}, Timestamp Pattern = {}", new Object[]{
                                 rawValue, longFromTimestamp, result, timestampPattern
                         });
                     }
@@ -890,7 +890,7 @@ public class AvroTypeUtil {
                     for (final RecordField recordField : recordValue.getSchema().getFields()) {
                         final Object v = recordValue.getValue(recordField);
                         if (v != null) {
-                            map.put(recordField.getFieldName(), convertToAvroObject(v, fieldSchema.getValueType(), fieldName + "[" + recordField.getFieldName() + "]", charset));
+                            map.put(recordField.getFieldName(), _convertToAvroObject(v, fieldSchema.getValueType(), fieldName + "[" + recordField.getFieldName() + "]", charset, timestampPattern, addHours)); // FIXED
                         }
                     }
 
@@ -899,7 +899,7 @@ public class AvroTypeUtil {
                     final Map<String, Object> objectMap = (Map<String, Object>) rawValue;
                     final Map<String, Object> map = new HashMap<>(objectMap.size());
                     for (final String s : objectMap.keySet()) {
-                        final Object converted = convertToAvroObject(objectMap.get(s), fieldSchema.getValueType(), fieldName + "[" + s + "]", charset);
+                        final Object converted = _convertToAvroObject(objectMap.get(s), fieldSchema.getValueType(), fieldName + "[" + s + "]", charset, timestampPattern, addHours); // FIXED
                         map.put(s, converted);
                     }
                     return map;
@@ -929,7 +929,7 @@ public class AvroTypeUtil {
                         continue;
                     }
 
-                    final Object converted = convertToAvroObject(recordFieldValue, field.schema(), fieldName + "/" + recordFieldName, charset);
+                    final Object converted = _convertToAvroObject(recordFieldValue, field.schema(), fieldName + "/" + recordFieldName, charset, timestampPattern, addHours); // FIXED
                     avroRecord.put(recordFieldName, converted);
                 }
                 return avroRecord;
@@ -1229,6 +1229,12 @@ public class AvroTypeUtil {
                 logger.debug("fail to convert field " + fieldName, ex);
                 throw ex;
             }
+        }
+
+        if (logger.isDebugEnabled()) { // FIXED
+            logger.debug("[AvroRecordReader] Record = {}, Schema = {}, Output = {}", new Object[]{
+                    avroRecord, recordSchema, values
+            });
         }
 
         return values;

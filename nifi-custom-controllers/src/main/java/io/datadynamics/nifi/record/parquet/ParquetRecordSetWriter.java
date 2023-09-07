@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-@Tags({"parquet", "result", "set", "writer", "serializer", "record", "recordset", "row"})
+@Tags({"custom", "timestamp", "datadynamics", "parquet", "result", "set", "writer", "serializer", "record", "recordset", "row"})
 @CapabilityDescription("Writes the contents of a RecordSet in Parquet format.")
 public class ParquetRecordSetWriter extends SchemaRegistryRecordSetWriter implements RecordSetWriterFactory {
 
