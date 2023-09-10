@@ -20,6 +20,7 @@
         <module>nifi-custom-controllers</module>
         <module>nifi-custom-processors-nar</module>
         <module>nifi-custom-controllers-nar</module>
+        <module>nifi-custom-notification-service</module>
     </modules>
 
 </project>
