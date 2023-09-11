@@ -150,8 +150,8 @@ public final class CsvReader implements Iterable<CsvRow>, Closeable {
         CsvRow csvRow;
         while ((csvRow = rowReader.fetchAndRead()) != null) {
 
-            if (csvRow.getFieldCount() != this.fieldCount) {
-                throw new IllegalArgumentException(String.format("Expected : %s, Real : %s", this.fieldCount, csvRow.getFieldCount()));
+            if (this.fieldCount > 0 && csvRow.getFieldCount() != this.fieldCount) {
+                throw new IllegalArgumentException(String.format("Invalid Field Count -> Expected : %s, Real : %s", this.fieldCount, csvRow.getFieldCount()));
             }
 
             // skip commented rows

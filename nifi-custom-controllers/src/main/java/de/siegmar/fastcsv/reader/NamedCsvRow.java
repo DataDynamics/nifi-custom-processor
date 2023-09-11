@@ -42,7 +42,7 @@ public final class NamedCsvRow {
         final String val = fieldMap.get(name);
         if (val == null) {
             throw new NoSuchElementException("No element with name '" + name + "' found. "
-                + "Valid names are: " + fieldMap.keySet());
+                    + "Valid names are: " + fieldMap.keySet());
         }
         return val;
     }
@@ -61,9 +61,9 @@ public final class NamedCsvRow {
     @Override
     public String toString() {
         return new StringJoiner(", ", NamedCsvRow.class.getSimpleName() + "[", "]")
-            .add("originalLineNumber=" + originalLineNumber)
-            .add("fieldMap=" + fieldMap)
-            .toString();
+                .add("originalLineNumber=" + originalLineNumber)
+                .add("fieldMap=" + fieldMap)
+                .toString();
     }
 
 }

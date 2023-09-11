@@ -47,8 +47,8 @@ public final class CsvWriter implements Closeable {
         }
         if (!allDiffers(fieldSeparator, quoteCharacter, commentCharacter)) {
             throw new IllegalArgumentException(String.format("Control characters must differ"
-                    + " (fieldSeparator=%s, quoteCharacter=%s, commentCharacter=%s)",
-                fieldSeparator, quoteCharacter, commentCharacter));
+                            + " (fieldSeparator=%s, quoteCharacter=%s, commentCharacter=%s)",
+                    fieldSeparator, quoteCharacter, commentCharacter));
         }
 
         this.writer = writer;
@@ -60,15 +60,6 @@ public final class CsvWriter implements Closeable {
         this.syncWriter = syncWriter;
     }
 
-    private boolean allDiffers(final char... chars) {
-        for (int i = 0; i < chars.length - 1; i++) {
-            if (chars[i] == chars[i + 1]) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     /**
      * Creates a {@link CsvWriterBuilder} instance used to configure and create instances of
      * this class.
@@ -77,6 +68,15 @@ public final class CsvWriter implements Closeable {
      */
     public static CsvWriterBuilder builder() {
         return new CsvWriterBuilder();
+    }
+
+    private boolean allDiffers(final char... chars) {
+        for (int i = 0; i < chars.length - 1; i++) {
+            if (chars[i] == chars[i + 1]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -141,7 +141,7 @@ public final class CsvWriter implements Closeable {
 
         if (value.isEmpty()) {
             if (quoteStrategy == QuoteStrategy.ALWAYS
-                || quoteStrategy == QuoteStrategy.EMPTY) {
+                    || quoteStrategy == QuoteStrategy.EMPTY) {
                 writer.write(quoteCharacter);
                 writer.write(quoteCharacter);
             }
@@ -160,7 +160,7 @@ public final class CsvWriter implements Closeable {
                 break;
             }
             if (!needsQuotes && (c == fieldSeparator || c == LF || c == CR
-                || firstField && i == 0 && c == commentCharacter)) {
+                    || firstField && i == 0 && c == commentCharacter)) {
                 needsQuotes = true;
             }
         }
@@ -181,12 +181,12 @@ public final class CsvWriter implements Closeable {
     }
 
     @SuppressWarnings({
-        "checkstyle:FinalParameters",
-        "checkstyle:ParameterAssignment",
-        "PMD.AvoidReassigningParameters"
+            "checkstyle:FinalParameters",
+            "checkstyle:ParameterAssignment",
+            "PMD.AvoidReassigningParameters"
     })
     private void writeEscaped(final String value, final int length, int nextDelimPos)
-        throws IOException {
+            throws IOException {
 
         int startPos = 0;
         do {
@@ -218,7 +218,6 @@ public final class CsvWriter implements Closeable {
      *                If the argument {@code comment} contains line break characters (CR, LF), multiple comment lines
      *                will be written, terminated with the line break character configured by
      *                {@link CsvWriterBuilder#lineDelimiter(LineDelimiter)}.
-     *
      * @return This CsvWriter.
      * @throws UncheckedIOException if a write error occurs
      */
@@ -285,12 +284,12 @@ public final class CsvWriter implements Closeable {
     @Override
     public String toString() {
         return new StringJoiner(", ", CsvWriter.class.getSimpleName() + "[", "]")
-            .add("fieldSeparator=" + fieldSeparator)
-            .add("quoteCharacter=" + quoteCharacter)
-            .add("commentCharacter=" + commentCharacter)
-            .add("quoteStrategy=" + quoteStrategy)
-            .add("lineDelimiter='" + lineDelimiter + "'")
-            .toString();
+                .add("fieldSeparator=" + fieldSeparator)
+                .add("quoteCharacter=" + quoteCharacter)
+                .add("commentCharacter=" + commentCharacter)
+                .add("quoteStrategy=" + quoteStrategy)
+                .add("lineDelimiter='" + lineDelimiter + "'")
+                .toString();
     }
 
     /**
@@ -418,7 +417,7 @@ public final class CsvWriter implements Closeable {
          * @throws NullPointerException if path or charset is {@code null}
          */
         public CsvWriter build(final Path path, final OpenOption... openOptions)
-            throws IOException {
+                throws IOException {
             return build(path, StandardCharsets.UTF_8, openOptions);
         }
 
@@ -435,35 +434,35 @@ public final class CsvWriter implements Closeable {
          */
         public CsvWriter build(final Path path, final Charset charset,
                                final OpenOption... openOptions)
-            throws IOException {
+                throws IOException {
 
             Objects.requireNonNull(path, "path must not be null");
             Objects.requireNonNull(charset, "charset must not be null");
 
             return newWriter(new OutputStreamWriter(Files.newOutputStream(path, openOptions),
-                charset), false);
+                    charset), false);
         }
 
         private CsvWriter newWriter(final Writer writer, final boolean syncWriter) {
             if (bufferSize > 0) {
                 return new CsvWriter(new FastBufferedWriter(writer, bufferSize), fieldSeparator, quoteCharacter,
-                    commentCharacter, quoteStrategy, lineDelimiter, syncWriter);
+                        commentCharacter, quoteStrategy, lineDelimiter, syncWriter);
             }
 
             return new CsvWriter(writer, fieldSeparator, quoteCharacter, commentCharacter, quoteStrategy,
-                lineDelimiter, false);
+                    lineDelimiter, false);
         }
 
         @Override
         public String toString() {
             return new StringJoiner(", ", CsvWriterBuilder.class.getSimpleName() + "[", "]")
-                .add("fieldSeparator=" + fieldSeparator)
-                .add("quoteCharacter=" + quoteCharacter)
-                .add("commentCharacter=" + commentCharacter)
-                .add("quoteStrategy=" + quoteStrategy)
-                .add("lineDelimiter=" + lineDelimiter)
-                .add("bufferSize=" + bufferSize)
-                .toString();
+                    .add("fieldSeparator=" + fieldSeparator)
+                    .add("quoteCharacter=" + quoteCharacter)
+                    .add("commentCharacter=" + commentCharacter)
+                    .add("quoteStrategy=" + quoteStrategy)
+                    .add("lineDelimiter=" + lineDelimiter)
+                    .add("bufferSize=" + bufferSize)
+                    .toString();
         }
 
     }

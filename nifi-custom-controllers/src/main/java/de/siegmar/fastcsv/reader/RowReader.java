@@ -7,12 +7,12 @@ import java.io.Reader;
  * This class contains ugly, performance optimized code - be warned!
  */
 @SuppressWarnings({
-    "checkstyle:CyclomaticComplexity",
-    "checkstyle:ExecutableStatementCount",
-    "checkstyle:InnerAssignment",
-    "checkstyle:JavaNCSS",
-    "checkstyle:NestedIfDepth",
-    "PMD.UnusedAssignment"
+        "checkstyle:CyclomaticComplexity",
+        "checkstyle:ExecutableStatementCount",
+        "checkstyle:InnerAssignment",
+        "checkstyle:JavaNCSS",
+        "checkstyle:NestedIfDepth",
+        "PMD.UnusedAssignment"
 })
 final class RowReader {
 
@@ -55,6 +55,45 @@ final class RowReader {
         this.cChar = commentCharacter;
     }
 
+    private static String materialize(final char[] lBuf,
+                                      final int lBegin, final int lPos, final int lStatus,
+                                      final char quoteCharacter) {
+        if ((lStatus & STATUS_QUOTED_COLUMN) == 0) {
+            // column without quotes
+            return new String(lBuf, lBegin, lPos);
+        }
+
+        // column with quotes
+        final int shift = cleanDelimiters(lBuf, lBegin + 1, lBegin + lPos,
+                quoteCharacter);
+        return new String(lBuf, lBegin + 1, lPos - 1 - shift);
+    }
+
+    private static int cleanDelimiters(final char[] buf, final int begin, final int pos,
+                                       final char quoteCharacter) {
+        int shift = 0;
+        boolean escape = false;
+        for (int i = begin; i < pos; i++) {
+            final char c = buf[i];
+
+            if (c == quoteCharacter) {
+                if (!escape) {
+                    shift++;
+                    escape = true;
+                    continue;
+                } else {
+                    escape = false;
+                }
+            }
+
+            if (shift > 0) {
+                buf[i - shift] = c;
+            }
+        }
+
+        return shift;
+    }
+
     CsvRow fetchAndRead() throws IOException {
         if (finished) {
             return null;
@@ -67,7 +106,7 @@ final class RowReader {
                     // reached end of stream
                     if (buffer.begin < buffer.pos || rowHandler.isCommentMode()) {
                         rowHandler.add(materialize(buffer.buf, buffer.begin,
-                            buffer.pos - buffer.begin, status, qChar));
+                                buffer.pos - buffer.begin, status, qChar));
                     } else if ((status & STATUS_NEW_FIELD) != 0) {
                         rowHandler.add("");
                     }
@@ -88,8 +127,10 @@ final class RowReader {
         int lStatus = status;
         boolean moreDataNeeded = true;
 
-        OUTER: {
-            mode_check: do {
+        OUTER:
+        {
+            mode_check:
+            do {
                 if ((lStatus & STATUS_QUOTED_MODE) != 0) {
                     // we're in quotes
                     while (lPos < lLen) {
@@ -125,14 +166,14 @@ final class RowReader {
 
                         if (lookAhead == CR) {
                             rh.add(materialize(lBuf, lBegin, lPos - lBegin - 1, lStatus,
-                                qChar));
+                                    qChar));
                             status = STATUS_LAST_CHAR_WAS_CR;
                             lBegin = lPos;
                             moreDataNeeded = false;
                             break OUTER;
                         } else if (lookAhead == LF) {
                             rh.add(materialize(lBuf, lBegin, lPos - lBegin - 1, lStatus,
-                                qChar));
+                                    qChar));
                             status = STATUS_RESET;
                             lBegin = lPos;
                             moreDataNeeded = false;
@@ -146,12 +187,12 @@ final class RowReader {
 
                         if (c == fsep) {
                             rh.add(materialize(lBuf, lBegin, lPos - lBegin - 1, lStatus,
-                                qChar));
+                                    qChar));
                             lStatus = STATUS_NEW_FIELD;
                             lBegin = lPos;
                         } else if (c == CR) {
                             rh.add(materialize(lBuf, lBegin, lPos - lBegin - 1, lStatus,
-                                qChar));
+                                    qChar));
                             status = STATUS_LAST_CHAR_WAS_CR;
                             lBegin = lPos;
                             moreDataNeeded = false;
@@ -159,7 +200,7 @@ final class RowReader {
                         } else if (c == LF) {
                             if ((lStatus & STATUS_LAST_CHAR_WAS_CR) == 0) {
                                 rh.add(materialize(lBuf, lBegin, lPos - lBegin - 1,
-                                    lStatus, qChar));
+                                        lStatus, qChar));
                                 status = STATUS_RESET;
                                 lBegin = lPos;
                                 moreDataNeeded = false;
@@ -169,7 +210,7 @@ final class RowReader {
                             lStatus = STATUS_RESET;
                             lBegin = lPos;
                         } else if (cStrat != CommentStrategy.NONE && c == cChar
-                            && (lStatus == STATUS_RESET || lStatus == STATUS_LAST_CHAR_WAS_CR)) {
+                                && (lStatus == STATUS_RESET || lStatus == STATUS_LAST_CHAR_WAS_CR)) {
                             lBegin = lPos;
                             lStatus = STATUS_COMMENTED_ROW;
                             rh.enableCommentMode();
@@ -208,57 +249,16 @@ final class RowReader {
         return moreDataNeeded;
     }
 
-    private static String materialize(final char[] lBuf,
-                                      final int lBegin, final int lPos, final int lStatus,
-                                      final char quoteCharacter) {
-        if ((lStatus & STATUS_QUOTED_COLUMN) == 0) {
-            // column without quotes
-            return new String(lBuf, lBegin, lPos);
-        }
-
-        // column with quotes
-        final int shift = cleanDelimiters(lBuf, lBegin + 1, lBegin + lPos,
-            quoteCharacter);
-        return new String(lBuf, lBegin + 1, lPos - 1 - shift);
-    }
-
-    private static int cleanDelimiters(final char[] buf, final int begin, final int pos,
-                                       final char quoteCharacter) {
-        int shift = 0;
-        boolean escape = false;
-        for (int i = begin; i < pos; i++) {
-            final char c = buf[i];
-
-            if (c == quoteCharacter) {
-                if (!escape) {
-                    shift++;
-                    escape = true;
-                    continue;
-                } else {
-                    escape = false;
-                }
-            }
-
-            if (shift > 0) {
-                buf[i - shift] = c;
-            }
-        }
-
-        return shift;
-    }
-
     @SuppressWarnings("checkstyle:visibilitymodifier")
     private static class Buffer {
         private static final int READ_SIZE = 8192;
         private static final int BUFFER_SIZE = READ_SIZE;
         private static final int MAX_BUFFER_SIZE = 8 * 1024 * 1024;
-
+        private final Reader reader;
         char[] buf;
         int len;
         int begin;
         int pos;
-
-        private final Reader reader;
 
         Buffer(final Reader reader) {
             this.reader = reader;
@@ -269,6 +269,20 @@ final class RowReader {
             reader = null;
             buf = data.toCharArray();
             len = data.length();
+        }
+
+        private static char[] extendAndRelocate(final char[] buf, final int begin)
+                throws IOException {
+
+            final int newBufferSize = buf.length * 2;
+            if (newBufferSize > MAX_BUFFER_SIZE) {
+                throw new IOException("Maximum buffer size " + MAX_BUFFER_SIZE + " is not enough "
+                        + "to read data of a single field. Typically, this happens if quotation "
+                        + "started but did not end within this buffer's maximum boundary.");
+            }
+            final char[] newBuf = new char[newBufferSize];
+            System.arraycopy(buf, begin, newBuf, 0, buf.length - begin);
+            return newBuf;
         }
 
         /**
@@ -310,20 +324,6 @@ final class RowReader {
             }
             len = pos + cnt;
             return false;
-        }
-
-        private static char[] extendAndRelocate(final char[] buf, final int begin)
-            throws IOException {
-
-            final int newBufferSize = buf.length * 2;
-            if (newBufferSize > MAX_BUFFER_SIZE) {
-                throw new IOException("Maximum buffer size " + MAX_BUFFER_SIZE + " is not enough "
-                    + "to read data of a single field. Typically, this happens if quotation "
-                    + "started but did not end within this buffer's maximum boundary.");
-            }
-            final char[] newBuf = new char[newBufferSize];
-            System.arraycopy(buf, begin, newBuf, 0, buf.length - begin);
-            return newBuf;
         }
 
     }

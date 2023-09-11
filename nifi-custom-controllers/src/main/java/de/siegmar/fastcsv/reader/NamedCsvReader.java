@@ -38,6 +38,15 @@ public final class NamedCsvReader implements Iterable<NamedCsvRow>, Closeable {
         namedCsvIterator = new NamedCsvRowIterator(csvIterator);
     }
 
+    /**
+     * Constructs a {@link NamedCsvReaderBuilder} to configure and build instances of this class.
+     *
+     * @return a new {@link NamedCsvReaderBuilder} instance.
+     */
+    public static NamedCsvReaderBuilder builder() {
+        return new NamedCsvReaderBuilder();
+    }
+
     private void initialize() {
         if (!csvIterator.hasNext()) {
             header = Collections.emptySet();
@@ -54,14 +63,6 @@ public final class NamedCsvReader implements Iterable<NamedCsvRow>, Closeable {
         }
 
         isInitialized = true;
-    }
-
-    /**
-     * Constructs a {@link NamedCsvReaderBuilder} to configure and build instances of this class.
-     * @return a new {@link NamedCsvReaderBuilder} instance.
-     */
-    public static NamedCsvReaderBuilder builder() {
-        return new NamedCsvReaderBuilder();
     }
 
     /**
@@ -116,34 +117,9 @@ public final class NamedCsvReader implements Iterable<NamedCsvRow>, Closeable {
     @Override
     public String toString() {
         return new StringJoiner(", ", NamedCsvReader.class.getSimpleName() + "[", "]")
-            .add("header=" + header)
-            .add("csvReader=" + csvReader)
-            .toString();
-    }
-
-    private class NamedCsvRowIterator implements CloseableIterator<NamedCsvRow> {
-
-        private final CloseableIterator<CsvRow> csvIterator;
-
-        NamedCsvRowIterator(final CloseableIterator<CsvRow> csvIterator) {
-            this.csvIterator = csvIterator;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return csvIterator.hasNext();
-        }
-
-        @Override
-        public NamedCsvRow next() {
-            return new NamedCsvRow(header, csvIterator.next());
-        }
-
-        @Override
-        public void close() throws IOException {
-            csvIterator.close();
-        }
-
+                .add("header=" + header)
+                .add("csvReader=" + csvReader)
+                .toString();
     }
 
     /**
@@ -213,9 +189,9 @@ public final class NamedCsvReader implements Iterable<NamedCsvRow>, Closeable {
         /**
          * Constructs a new {@link NamedCsvReader} for the specified path using UTF-8 as the character set.
          *
-         * @param path    the file to read data from.
+         * @param path the file to read data from.
          * @return a new NamedCsvReader - never {@code null}. Don't forget to close it!
-         * @throws IOException if an I/O error occurs.
+         * @throws IOException          if an I/O error occurs.
          * @throws NullPointerException if path or charset is {@code null}
          */
         public NamedCsvReader build(final Path path) throws IOException {
@@ -228,7 +204,7 @@ public final class NamedCsvReader implements Iterable<NamedCsvRow>, Closeable {
          * @param path    the file to read data from.
          * @param charset the character set to use.
          * @return a new NamedCsvReader - never {@code null}. Don't forget to close it!
-         * @throws IOException if an I/O error occurs.
+         * @throws IOException          if an I/O error occurs.
          * @throws NullPointerException if path or charset is {@code null}
          */
         public NamedCsvReader build(final Path path, final Charset charset) throws IOException {
@@ -255,7 +231,7 @@ public final class NamedCsvReader implements Iterable<NamedCsvRow>, Closeable {
         /**
          * Constructs a new {@link NamedCsvReader} for the specified arguments.
          *
-         * @param data    the data to read.
+         * @param data the data to read.
          * @return a new NamedCsvReader - never {@code null}.
          */
         public NamedCsvReader build(final String data) {
@@ -264,21 +240,46 @@ public final class NamedCsvReader implements Iterable<NamedCsvRow>, Closeable {
 
         private CsvReader.CsvReaderBuilder csvReaderBuilder() {
             return CsvReader.builder()
-                .fieldSeparator(fieldSeparator)
-                .quoteCharacter(quoteCharacter)
-                .commentCharacter(commentCharacter)
-                .commentStrategy(skipComments ? CommentStrategy.SKIP : CommentStrategy.NONE)
-                .errorOnDifferentFieldCount(true);
+                    .fieldSeparator(fieldSeparator)
+                    .quoteCharacter(quoteCharacter)
+                    .commentCharacter(commentCharacter)
+                    .commentStrategy(skipComments ? CommentStrategy.SKIP : CommentStrategy.NONE)
+                    .errorOnDifferentFieldCount(true);
         }
 
         @Override
         public String toString() {
             return new StringJoiner(", ", NamedCsvReaderBuilder.class.getSimpleName() + "[", "]")
-                .add("fieldSeparator=" + fieldSeparator)
-                .add("quoteCharacter=" + quoteCharacter)
-                .add("commentCharacter=" + commentCharacter)
-                .add("skipComments=" + skipComments)
-                .toString();
+                    .add("fieldSeparator=" + fieldSeparator)
+                    .add("quoteCharacter=" + quoteCharacter)
+                    .add("commentCharacter=" + commentCharacter)
+                    .add("skipComments=" + skipComments)
+                    .toString();
+        }
+
+    }
+
+    private class NamedCsvRowIterator implements CloseableIterator<NamedCsvRow> {
+
+        private final CloseableIterator<CsvRow> csvIterator;
+
+        NamedCsvRowIterator(final CloseableIterator<CsvRow> csvIterator) {
+            this.csvIterator = csvIterator;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return csvIterator.hasNext();
+        }
+
+        @Override
+        public NamedCsvRow next() {
+            return new NamedCsvRow(header, csvIterator.next());
+        }
+
+        @Override
+        public void close() throws IOException {
+            csvIterator.close();
         }
 
     }

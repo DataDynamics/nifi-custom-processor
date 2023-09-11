@@ -92,10 +92,10 @@ public final class CsvRow {
     @Override
     public String toString() {
         return new StringJoiner(", ", CsvRow.class.getSimpleName() + "[", "]")
-            .add("originalLineNumber=" + originalLineNumber)
-            .add("fields=" + Arrays.toString(fields))
-            .add("comment=" + comment)
-            .toString();
+                .add("originalLineNumber=" + originalLineNumber)
+                .add("fields=" + Arrays.toString(fields))
+                .add("comment=" + comment)
+                .toString();
     }
 
 }

@@ -13,7 +13,7 @@ public enum QuoteStrategy {
      *     <li>comment character</li>
      *     <li>newline character(s) (CR / LF / CRLF)</li>
      * </ul>
-     *
+     * <p>
      * Empty strings and {@code null} fields will not be enclosed with quotes.
      */
     REQUIRED,
