@@ -1,6 +1,6 @@
 package io.datadynamics.nifi.record.csv;
 
-import org.apache.commons.csv.CSVFormat;
+import shaded.org.apache.commons.csv.CSVFormat;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnEnabled;

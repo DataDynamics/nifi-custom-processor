@@ -1,8 +1,8 @@
 package io.datadynamics.nifi.record.csv;
 
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
+import shaded.org.apache.commons.csv.CSVFormat;
+import shaded.org.apache.commons.csv.CSVParser;
+import shaded.org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.nifi.context.PropertyContext;
 import org.apache.nifi.csv.CSVUtils;

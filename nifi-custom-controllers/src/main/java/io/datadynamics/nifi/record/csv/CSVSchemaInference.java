@@ -1,6 +1,6 @@
 package io.datadynamics.nifi.record.csv;
 
-import org.apache.commons.csv.CSVRecord;
+import shaded.org.apache.commons.csv.CSVRecord;
 import org.apache.nifi.schema.inference.FieldTypeInference;
 import org.apache.nifi.schema.inference.RecordSource;
 import org.apache.nifi.schema.inference.SchemaInferenceEngine;
