@@ -225,6 +225,10 @@ public final class CSVFormat implements Serializable {
 
         private boolean trim;
 
+        private int fieldCount = -1;
+
+        private boolean validateFieldCount = false;
+
         private Builder(final CSVFormat csvFormat) {
             this.delimiter = csvFormat.delimiter;
             this.quoteCharacter = csvFormat.quoteCharacter;
@@ -245,6 +249,8 @@ public final class CSVFormat implements Serializable {
             this.autoFlush = csvFormat.autoFlush;
             this.quotedNullString = csvFormat.quotedNullString;
             this.duplicateHeaderMode = csvFormat.duplicateHeaderMode;
+            this.fieldCount = csvFormat.fieldCount;
+            this.validateFieldCount = csvFormat.validateFieldCount;
         }
 
         /**
@@ -295,7 +301,7 @@ public final class CSVFormat implements Serializable {
 
         /**
          * Sets the comment start marker, use {@code null} to disable.
-         *
+         * <p>
          * Note that the comment start character is only recognized at the start of a line.
          *
          * @param commentMarker the comment start marker, use {@code null} to disable.
@@ -309,7 +315,7 @@ public final class CSVFormat implements Serializable {
 
         /**
          * Sets the comment start marker, use {@code null} to disable.
-         *
+         * <p>
          * Note that the comment start character is only recognized at the start of a line.
          *
          * @param commentMarker the comment start marker, use {@code null} to disable.
@@ -427,7 +433,7 @@ public final class CSVFormat implements Serializable {
          * <pre>
          * builder.setHeader();
          * </pre>
-         *
+         * <p>
          * or specified manually with:
          *
          * <pre>
@@ -451,7 +457,7 @@ public final class CSVFormat implements Serializable {
          * <pre>
          * builder.setHeader();
          * </pre>
-         *
+         * <p>
          * or specified manually with:
          *
          * <pre>
@@ -483,7 +489,7 @@ public final class CSVFormat implements Serializable {
          * <pre>
          * builder.setHeader();
          * </pre>
-         *
+         * <p>
          * or specified manually with:
          *
          * <pre>
@@ -683,6 +689,16 @@ public final class CSVFormat implements Serializable {
             this.trim = trim;
             return this;
         }
+
+        public Builder setFieldCount(int fieldCount) {
+            this.fieldCount = fieldCount;
+            return this;
+        }
+
+        public Builder setValidateFieldCount(boolean validateFieldCount) {
+            this.validateFieldCount = validateFieldCount;
+            return this;
+        }
     }
 
     /**
@@ -791,7 +807,7 @@ public final class CSVFormat implements Serializable {
      * @see Predefined#Default
      */
     public static final CSVFormat DEFAULT = new CSVFormat(Constants.COMMA, Constants.DOUBLE_QUOTE_CHAR, null, null, null, false, true, Constants.CRLF, null, null, null, false, false, false,
-            false, false, false, DuplicateHeaderMode.ALLOW_ALL);
+            false, false, false, DuplicateHeaderMode.ALLOW_ALL, -1, false);
 
     /**
      * Excel file format (using a comma as the value delimiter). Note that the actual value delimiter used by Excel is locale dependent, it might be necessary
@@ -1248,7 +1264,7 @@ public final class CSVFormat implements Serializable {
      */
     public static CSVFormat newFormat(final char delimiter) {
         return new CSVFormat(String.valueOf(delimiter), null, null, null, null, false, false, null, null, null, null, false, false, false, false, false, false,
-                DuplicateHeaderMode.ALLOW_ALL);
+                DuplicateHeaderMode.ALLOW_ALL, -1, false);
     }
 
     static String[] toStringArray(final Object[] values) {
@@ -1325,6 +1341,9 @@ public final class CSVFormat implements Serializable {
     private final boolean trailingDelimiter;
 
     private final boolean trim;
+    private final int fieldCount;
+
+    private final boolean validateFieldCount;
 
     private CSVFormat(final Builder builder) {
         this.delimiter = builder.delimiter;
@@ -1346,6 +1365,8 @@ public final class CSVFormat implements Serializable {
         this.autoFlush = builder.autoFlush;
         this.quotedNullString = builder.quotedNullString;
         this.duplicateHeaderMode = builder.duplicateHeaderMode;
+        this.fieldCount = builder.fieldCount;
+        this.validateFieldCount = builder.validateFieldCount;
         validate();
     }
 
@@ -1376,7 +1397,9 @@ public final class CSVFormat implements Serializable {
                       final boolean ignoreSurroundingSpaces, final boolean ignoreEmptyLines, final String recordSeparator, final String nullString,
                       final Object[] headerComments, final String[] header, final boolean skipHeaderRecord, final boolean allowMissingColumnNames,
                       final boolean ignoreHeaderCase, final boolean trim, final boolean trailingDelimiter, final boolean autoFlush,
-                      final DuplicateHeaderMode duplicateHeaderMode) {
+                      final DuplicateHeaderMode duplicateHeaderMode,
+                      final int fieldCount,
+                      final boolean validateFieldCount) {
         this.delimiter = delimiter;
         this.quoteCharacter = quoteChar;
         this.quoteMode = quoteMode;
@@ -1396,6 +1419,8 @@ public final class CSVFormat implements Serializable {
         this.autoFlush = autoFlush;
         this.quotedNullString = quoteCharacter + nullString + quoteCharacter;
         this.duplicateHeaderMode = duplicateHeaderMode;
+        this.fieldCount = fieldCount;
+        this.validateFieldCount = validateFieldCount;
         validate();
     }
 
@@ -1442,7 +1467,7 @@ public final class CSVFormat implements Serializable {
             return false;
         }
         final CSVFormat other = (CSVFormat) obj;
-        return duplicateHeaderMode == other.duplicateHeaderMode && allowMissingColumnNames == other.allowMissingColumnNames &&
+        return fieldCount == other.fieldCount && duplicateHeaderMode == other.duplicateHeaderMode && allowMissingColumnNames == other.allowMissingColumnNames &&
                 autoFlush == other.autoFlush && Objects.equals(commentMarker, other.commentMarker) && Objects.equals(delimiter, other.delimiter) &&
                 Objects.equals(escapeCharacter, other.escapeCharacter) && Arrays.equals(headers, other.headers) &&
                 Arrays.equals(headerComments, other.headerComments) && ignoreEmptyLines == other.ignoreEmptyLines &&
@@ -1666,6 +1691,14 @@ public final class CSVFormat implements Serializable {
         return trim;
     }
 
+    public int getFieldCount() {
+        return fieldCount;
+    }
+
+    public boolean isValidateFieldCount() {
+        return validateFieldCount;
+    }
+
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -1674,7 +1707,7 @@ public final class CSVFormat implements Serializable {
         result = prime * result + Arrays.hashCode(headerComments);
         return prime * result + Objects.hash(duplicateHeaderMode, allowMissingColumnNames, autoFlush, commentMarker, delimiter, escapeCharacter,
                 ignoreEmptyLines, ignoreHeaderCase, ignoreSurroundingSpaces, nullString, quoteCharacter, quoteMode, quotedNullString, recordSeparator,
-                skipHeaderRecord, trailingDelimiter, trim);
+                skipHeaderRecord, trailingDelimiter, trim, fieldCount);
     }
 
     /**

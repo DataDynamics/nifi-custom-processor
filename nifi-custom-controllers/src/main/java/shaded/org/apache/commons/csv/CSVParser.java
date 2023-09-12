@@ -127,7 +127,12 @@ public final class CSVParser implements Iterable<shaded.org.apache.commons.csv.C
 
         private shaded.org.apache.commons.csv.CSVRecord getNextRecord() {
             try {
-                return CSVParser.this.nextRecord();
+                CSVRecord record = CSVParser.this.nextRecord();
+                if (CSVParser.this.lexer.isValidateFieldCount() && CSVParser.this.lexer.getFieldCount() != record.values().length) {
+                    // Exception
+                    throw new FieldCountMismatchException(String.format("Field Count Mismatched >> Expected : %s, Real : %s", CSVParser.this.lexer.getFieldCount(), record.values().length));
+                }
+                return record;
             } catch (final IOException e) {
                 throw new UncheckedIOException(e.getClass().getSimpleName() + " reading next record: " + e.toString(), e);
             }
@@ -379,7 +384,7 @@ public final class CSVParser implements Iterable<shaded.org.apache.commons.csv.C
         Objects.requireNonNull(format, "format");
 
         this.format = format.copy();
-        this.lexer = new shaded.org.apache.commons.csv.Lexer(format, new ExtendedBufferedReader(reader));
+        this.lexer = new shaded.org.apache.commons.csv.Lexer(format, new ExtendedBufferedReader(reader)); // FIXED : CSV Format
         this.csvRecordIterator = new CSVRecordIterator();
         this.headers = createHeaders();
         this.characterOffset = characterOffset;

@@ -49,6 +49,11 @@ final class Lexer implements Closeable {
      * The input stream
      */
     private final ExtendedBufferedReader reader;
+
+    private final int fieldCount;
+
+    private final boolean validateFieldCount;
+
     private String firstEol;
 
     private boolean isLastTokenDelimiter;
@@ -63,6 +68,8 @@ final class Lexer implements Closeable {
         this.ignoreEmptyLines = format.getIgnoreEmptyLines();
         this.delimiterBuf = new char[delimiter.length - 1];
         this.escapeDelimiterBuf = new char[2 * delimiter.length - 1];
+        this.fieldCount = format.getFieldCount();
+        this.validateFieldCount = format.isValidateFieldCount();
     }
 
     /**
@@ -103,6 +110,14 @@ final class Lexer implements Closeable {
 
     boolean isCommentStart(final int ch) {
         return ch == commentStart;
+    }
+
+    public int getFieldCount() {
+        return fieldCount;
+    }
+
+    public boolean isValidateFieldCount() {
+        return validateFieldCount;
     }
 
     /**

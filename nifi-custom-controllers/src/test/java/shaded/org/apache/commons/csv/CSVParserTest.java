@@ -20,7 +20,6 @@ package shaded.org.apache.commons.csv;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.commons.io.input.BrokenInputStream;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;
@@ -169,55 +168,9 @@ public class CSVParserTest {
     }
 
     @Test
-    @Disabled
-    public void testBackslashEscapingOld() throws IOException {
-        final String code = "one,two,three\n" + "on\\\"e,two\n" + "on\"e,two\n" + "one,\"tw\\\"o\"\n" + "one,\"t\\,wo\"\n" + "one,two,\"th,ree\"\n"
-                + "\"a\\\\\"\n" + "a\\,b\n" + "\"a\\\\,b\"";
-        final String[][] res = {{"one", "two", "three"}, {"on\\\"e", "two"}, {"on\"e", "two"}, {"one", "tw\"o"}, {"one", "t\\,wo"}, // backslash in quotes only
-                // escapes a delimiter (",")
-                {"one", "two", "th,ree"}, {"a\\\\"}, // backslash in quotes only escapes a delimiter (",")
-                {"a\\", "b"}, // a backslash must be returned
-                {"a\\\\,b"} // backslash in quotes only escapes a delimiter (",")
-        };
-        try (final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVParser.parse(code, shaded.org.apache.commons.csv.CSVFormat.DEFAULT)) {
-            final List<shaded.org.apache.commons.csv.CSVRecord> records = parser.getRecords();
-            assertEquals(res.length, records.size());
-            assertFalse(records.isEmpty());
-            for (int i = 0; i < res.length; i++) {
-                assertArrayEquals(res[i], records.get(i).values());
-            }
-        }
-    }
-
-    @Test
-    @Disabled("CSV-107")
-    public void testBOM() throws IOException {
-        final URL url = ClassLoader.getSystemClassLoader().getResource("org/apache/commons/csv/CSVFileParser/bom.csv");
-        try (final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVParser.parse(url, Charset.forName(UTF_8_NAME), shaded.org.apache.commons.csv.CSVFormat.EXCEL.withHeader())) {
-            parser.forEach(record -> assertNotNull(record.get("Date")));
-        }
-    }
-
-    @Test
-    public void testBOMInputStream_ParserWithInputStream() throws IOException {
-        try (final BOMInputStream inputStream = createBOMInputStream("org/apache/commons/csv/CSVFileParser/bom.csv");
-             final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVParser.parse(inputStream, UTF_8, shaded.org.apache.commons.csv.CSVFormat.EXCEL.withHeader())) {
-            parser.forEach(record -> assertNotNull(record.get("Date")));
-        }
-    }
-
-    @Test
     public void testBOMInputStream_ParserWithReader() throws IOException {
-        try (final Reader reader = new InputStreamReader(createBOMInputStream("org/apache/commons/csv/CSVFileParser/bom.csv"), UTF_8_NAME);
+        try (final Reader reader = new InputStreamReader(createBOMInputStream("shaded/org/apache/commons/csv/CSVFileParser/bom.csv"), UTF_8_NAME);
              final shaded.org.apache.commons.csv.CSVParser parser = new shaded.org.apache.commons.csv.CSVParser(reader, shaded.org.apache.commons.csv.CSVFormat.EXCEL.withHeader())) {
-            parser.forEach(record -> assertNotNull(record.get("Date")));
-        }
-    }
-
-    @Test
-    public void testBOMInputStream_parseWithReader() throws IOException {
-        try (final Reader reader = new InputStreamReader(createBOMInputStream("org/apache/commons/csv/CSVFileParser/bom.csv"), UTF_8_NAME);
-             final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVParser.parse(reader, shaded.org.apache.commons.csv.CSVFormat.EXCEL.withHeader())) {
             parser.forEach(record -> assertNotNull(record.get("Date")));
         }
     }
@@ -252,40 +205,8 @@ public class CSVParserTest {
         assertThrows(NoSuchElementException.class, records::next);
     }
 
-    @Test
-    public void testCSV141CSVFormat_DEFAULT() throws Exception {
-        testCSV141Failure(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, 3);
-    }
-
-    @Test
-    public void testCSV141CSVFormat_INFORMIX_UNLOAD() throws Exception {
-        testCSV141Failure(shaded.org.apache.commons.csv.CSVFormat.INFORMIX_UNLOAD, 1);
-    }
-
-    @Test
-    public void testCSV141CSVFormat_INFORMIX_UNLOAD_CSV() throws Exception {
-        testCSV141Failure(shaded.org.apache.commons.csv.CSVFormat.INFORMIX_UNLOAD_CSV, 3);
-    }
-
-    @Test
-    public void testCSV141CSVFormat_ORACLE() throws Exception {
-        testCSV141Failure(shaded.org.apache.commons.csv.CSVFormat.ORACLE, 2);
-    }
-
-
-    @Test
-    public void testCSV141CSVFormat_POSTGRESQL_CSV() throws Exception {
-        testCSV141Failure(shaded.org.apache.commons.csv.CSVFormat.POSTGRESQL_CSV, 3);
-    }
-
-    @Test
-    @Disabled("PR 295 does not work")
-    public void testCSV141Excel() throws Exception {
-        testCSV141Ok(shaded.org.apache.commons.csv.CSVFormat.EXCEL);
-    }
-
     private void testCSV141Failure(final shaded.org.apache.commons.csv.CSVFormat format, final int failParseRecordNo) throws IOException {
-        final Path path = Paths.get("src/test/resources/org/apache/commons/csv/CSV-141/csv-141.csv");
+        final Path path = Paths.get("src/test/resources/shaded/org/apache/commons/csv/CSV-141/csv-141.csv");
         try (final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVParser.parse(path, StandardCharsets.UTF_8, format)) {
             // row 1
             shaded.org.apache.commons.csv.CSVRecord record = parse(parser, failParseRecordNo);
@@ -315,7 +236,7 @@ public class CSVParserTest {
     }
 
     private void testCSV141Ok(final shaded.org.apache.commons.csv.CSVFormat format) throws IOException {
-        final Path path = Paths.get("src/test/resources/org/apache/commons/csv/CSV-141/csv-141.csv");
+        final Path path = Paths.get("src/test/resources/shaded/org/apache/commons/csv/CSV-141/csv-141.csv");
         try (final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVParser.parse(path, StandardCharsets.UTF_8, format)) {
             // row 1
             shaded.org.apache.commons.csv.CSVRecord record = parser.nextRecord();
@@ -348,11 +269,6 @@ public class CSVParserTest {
             assertEquals("pass sem1", record.get(4));
             assertEquals(5, record.size());
         }
-    }
-
-    @Test
-    public void testCSV141RFC4180() throws Exception {
-        testCSV141Failure(shaded.org.apache.commons.csv.CSVFormat.RFC4180, 3);
     }
 
     @Test
@@ -421,7 +337,7 @@ public class CSVParserTest {
 
     @Test
     public void testEmptyFile() throws Exception {
-        try (final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVParser.parse(Paths.get("src/test/resources/org/apache/commons/csv/empty.txt"), StandardCharsets.UTF_8,
+        try (final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVParser.parse(Paths.get("src/test/resources/shaded/org/apache/commons/csv/empty.txt"), StandardCharsets.UTF_8,
                 shaded.org.apache.commons.csv.CSVFormat.DEFAULT)) {
             assertNull(parser.nextRecord());
         }
@@ -1120,6 +1036,19 @@ public class CSVParserTest {
     }
 
     @Test
+    public void parseAndRaiseException() throws Exception {
+        final Reader in = new StringReader("a,b,c\n1,2\nx,y,z");
+        CSVFormat.Builder builder = CSVFormat.Builder.create();
+        CSVFormat format = builder.setDelimiter("`").setSkipHeaderRecord(true).setFieldCount(3).setValidateFieldCount(true).setHeader("A", "B", "C").build();
+        try (final shaded.org.apache.commons.csv.CSVParser parser = format.parse(in)) {
+            final Iterator<shaded.org.apache.commons.csv.CSVRecord> records = parser.iterator();
+            Assertions.assertThrows(FieldCountMismatchException.class, () -> {
+                records.next();
+            });
+        }
+    }
+
+    @Test
     public void testMappedButNotSetAsOutlook2007ContactExport() throws Exception {
         final Reader in = new StringReader("a,b,c\n1,2\nx,y,z");
         try (final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVFormat.DEFAULT.withHeader("A", "B", "C").withSkipHeaderRecord().parse(in)) {
@@ -1152,25 +1081,6 @@ public class CSVParserTest {
             assertTrue(record.isConsistent());
 
             assertFalse(records.hasNext());
-        }
-    }
-
-    @Test
-    @Disabled
-    public void testMongoDbCsv() throws Exception {
-        try (final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVParser.parse("\"a a\",b,c" + LF + "d,e,f", shaded.org.apache.commons.csv.CSVFormat.MONGODB_CSV)) {
-            final Iterator<shaded.org.apache.commons.csv.CSVRecord> itr1 = parser.iterator();
-            final Iterator<shaded.org.apache.commons.csv.CSVRecord> itr2 = parser.iterator();
-
-            final shaded.org.apache.commons.csv.CSVRecord first = itr1.next();
-            assertEquals("a a", first.get(0));
-            assertEquals("b", first.get(1));
-            assertEquals("c", first.get(2));
-
-            final shaded.org.apache.commons.csv.CSVRecord second = itr2.next();
-            assertEquals("d", second.get(0));
-            assertEquals("e", second.get(1));
-            assertEquals("f", second.get(2));
         }
     }
 
@@ -1222,7 +1132,7 @@ public class CSVParserTest {
     @Test
     public void testParse() throws Exception {
         final ClassLoader loader = ClassLoader.getSystemClassLoader();
-        final URL url = loader.getResource("org/apache/commons/csv/CSVFileParser/test.csv");
+        final URL url = loader.getResource("shaded/org/apache/commons/csv/CSVFileParser/test.csv");
         final shaded.org.apache.commons.csv.CSVFormat format = shaded.org.apache.commons.csv.CSVFormat.DEFAULT.withHeader("A", "B", "C", "D");
         final Charset charset = StandardCharsets.UTF_8;
 
@@ -1478,24 +1388,6 @@ public class CSVParserTest {
             assertEquals("1", record.get("a"));
             assertEquals("2", record.get("b"));
             assertEquals("3", record.get("c"));
-        }
-    }
-
-    @Test
-    @Disabled
-    public void testStartWithEmptyLinesThenHeaders() throws Exception {
-        final String[] codes = {"\r\n\r\n\r\nhello,\r\n\r\n\r\n", "hello,\n\n\n", "hello,\"\"\r\n\r\n\r\n", "hello,\"\"\n\n\n"};
-        final String[][] res = {{"hello", ""}, {""}, // Excel format does not ignore empty lines
-                {""}};
-        for (final String code : codes) {
-            try (final shaded.org.apache.commons.csv.CSVParser parser = shaded.org.apache.commons.csv.CSVParser.parse(code, shaded.org.apache.commons.csv.CSVFormat.EXCEL)) {
-                final List<shaded.org.apache.commons.csv.CSVRecord> records = parser.getRecords();
-                assertEquals(res.length, records.size());
-                assertFalse(records.isEmpty());
-                for (int i = 0; i < res.length; i++) {
-                    assertArrayEquals(res[i], records.get(i).values());
-                }
-            }
         }
     }
 
