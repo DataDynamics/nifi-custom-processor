@@ -748,8 +748,7 @@ public final class CSVParser implements Iterable<shaded.org.apache.commons.csv.C
         if (!this.recordList.isEmpty()) {
             this.recordNumber++;
             final String comment = sb == null ? null : sb.toString();
-            result = new shaded.org.apache.commons.csv.CSVRecord(this, this.recordList.toArray(shaded.org.apache.commons.csv.Constants.EMPTY_STRING_ARRAY), comment,
-                    this.recordNumber, startCharPosition);
+            result = new shaded.org.apache.commons.csv.CSVRecord(this, this.recordList.toArray(shaded.org.apache.commons.csv.Constants.EMPTY_STRING_ARRAY), comment, this.recordNumber, startCharPosition);
         }
         return result;
     }
