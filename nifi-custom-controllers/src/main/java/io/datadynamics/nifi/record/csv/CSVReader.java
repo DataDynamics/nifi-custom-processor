@@ -73,20 +73,30 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
             .build();
 
     public static final PropertyDescriptor FIELD_COUNT = new PropertyDescriptor.Builder()
-            .name("Field count")
-            .description("Field count for CSV File")
+            .name("필드(컬럼) 개수")
+            .description("유효성 검사를 위한 CSV 파일의 필드(컬럼) 개수")
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
             .required(false)
             .build();
 
     public static final PropertyDescriptor FAIL_ON_MISMATCH_FIELD_COUNT = new PropertyDescriptor.Builder()
-            .name("Fail on mismatch field count")
-            .description("Fail if field count is mismatch")
+            .name("필드(컬럼) 개수 불일치시 실패처리")
+            .description("CSV 파일의 필드(컬럼) 개수가 지정한 필드 개수와 불일치 하는 경우 CSV 파일 실패 처리")
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .allowableValues("true", "false")
             .defaultValue("false")
             .dependsOn(FIELD_COUNT)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .required(false)
+            .build();
+
+    public static final PropertyDescriptor USE_SCHEMA_FOR_FIELD_COUNT = new PropertyDescriptor.Builder()
+            .name("필드(컬럼) 개수로 스키마를 활용")
+            .description("별도로 필드(컬럼) 개수를 지정하지 않고 스키마로 필드 개수를 사용")
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .allowableValues("true", "false")
+            .defaultValue("false")
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .required(false)
             .build();
@@ -126,6 +136,7 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
         properties.add(TRIM_DOUBLE_QUOTE);
         properties.add(FIELD_COUNT);
         properties.add(FAIL_ON_MISMATCH_FIELD_COUNT);
+        properties.add(USE_SCHEMA_FOR_FIELD_COUNT);
         return properties;
     }
 
@@ -172,9 +183,10 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
         final boolean trimDoubleQuote = context.getProperty(TRIM_DOUBLE_QUOTE).asBoolean();
         final Integer fieldCount = context.getProperty(FIELD_COUNT).asInteger();
         final boolean failOnMismatchFieldCount = context.getProperty(FAIL_ON_MISMATCH_FIELD_COUNT).asBoolean();
+        final boolean useSchemaForFieldCount = context.getProperty(USE_SCHEMA_FOR_FIELD_COUNT).asBoolean();
 
         if (APACHE_COMMONS_CSV.getValue().equals(csvParser)) {
-            return new CSVRecordReader(in, logger, schema, format, firstLineIsHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, charSet, trimDoubleQuote, fieldCount, failOnMismatchFieldCount);
+            return new CSVRecordReader(in, logger, schema, format, firstLineIsHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, charSet, trimDoubleQuote, useSchemaForFieldCount ? schema.getFieldCount() : fieldCount, failOnMismatchFieldCount);
         } else if (JACKSON_CSV.getValue().equals(csvParser)) {
             return new JacksonCSVRecordReader(in, logger, schema, format, firstLineIsHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, charSet, trimDoubleQuote);
         } else {
