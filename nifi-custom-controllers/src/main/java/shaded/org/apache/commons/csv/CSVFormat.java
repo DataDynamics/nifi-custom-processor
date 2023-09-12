@@ -2488,6 +2488,22 @@ public final class CSVFormat implements Serializable {
         // @formatter:on
     }
 
+    public CSVFormat withFieldCount(final Integer fieldCount) {
+        // @formatter:off
+        return builder()
+                .setFieldCount(fieldCount)
+                .build();
+        // @formatter:on
+    }
+
+    public CSVFormat withValidateFieldCount(final boolean validateFieldCount) {
+        // @formatter:off
+        return builder()
+                .setValidateFieldCount(validateFieldCount)
+                .build();
+        // @formatter:on
+    }
+
     /**
      * Builds a new {@code CSVFormat} with the header of the format defined by the enum class.
      *

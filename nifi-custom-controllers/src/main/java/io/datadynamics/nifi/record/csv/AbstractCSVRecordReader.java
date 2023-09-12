@@ -26,6 +26,8 @@ abstract public class AbstractCSVRecordReader implements RecordReader {
     protected final String timestampFormat;
 
     protected final RecordSchema schema;
+    private final Integer fieldCount;
+    private final boolean failOnMismatchFieldCount;
 
     AbstractCSVRecordReader(final ComponentLog logger, final RecordSchema schema, final boolean hasHeader, final boolean ignoreHeader,
                             final String dateFormat, final String timeFormat, final String timestampFormat, final boolean trimDoubleQuote) {
@@ -34,6 +36,43 @@ abstract public class AbstractCSVRecordReader implements RecordReader {
         this.hasHeader = hasHeader;
         this.ignoreHeader = ignoreHeader;
         this.trimDoubleQuote = trimDoubleQuote;
+        this.fieldCount = -1;
+        this.failOnMismatchFieldCount = false;
+
+        if (dateFormat == null || dateFormat.isEmpty()) {
+            this.dateFormat = null;
+            LAZY_DATE_FORMAT = null;
+        } else {
+            this.dateFormat = dateFormat;
+            LAZY_DATE_FORMAT = () -> DataTypeUtils.getDateFormat(dateFormat);
+        }
+
+        if (timeFormat == null || timeFormat.isEmpty()) {
+            this.timeFormat = null;
+            LAZY_TIME_FORMAT = null;
+        } else {
+            this.timeFormat = timeFormat;
+            LAZY_TIME_FORMAT = () -> DataTypeUtils.getDateFormat(timeFormat);
+        }
+
+        if (timestampFormat == null || timestampFormat.isEmpty()) {
+            this.timestampFormat = null;
+            LAZY_TIMESTAMP_FORMAT = null;
+        } else {
+            this.timestampFormat = timestampFormat;
+            LAZY_TIMESTAMP_FORMAT = () -> DataTypeUtils.getDateFormat(timestampFormat);
+        }
+    }
+
+    AbstractCSVRecordReader(final ComponentLog logger, final RecordSchema schema, final boolean hasHeader, final boolean ignoreHeader,
+                            final String dateFormat, final String timeFormat, final String timestampFormat, final boolean trimDoubleQuote, Integer fieldCount, boolean failOnMismatchFieldCount) {
+        this.logger = logger;
+        this.schema = schema;
+        this.hasHeader = hasHeader;
+        this.ignoreHeader = ignoreHeader;
+        this.trimDoubleQuote = trimDoubleQuote;
+        this.fieldCount = fieldCount;
+        this.failOnMismatchFieldCount = failOnMismatchFieldCount;
 
         if (dateFormat == null || dateFormat.isEmpty()) {
             this.dateFormat = null;

@@ -72,6 +72,25 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
             .required(true)
             .build();
 
+    public static final PropertyDescriptor FIELD_COUNT = new PropertyDescriptor.Builder()
+            .name("Field count")
+            .description("Field count for CSV File")
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
+            .required(false)
+            .build();
+
+    public static final PropertyDescriptor FAIL_ON_MISMATCH_FIELD_COUNT = new PropertyDescriptor.Builder()
+            .name("Fail on mismatch field count")
+            .description("Fail if field count is mismatch")
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .dependsOn(FIELD_COUNT)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .required(false)
+            .build();
+
     private volatile ConfigurationContext context;
 
     private volatile String csvParser;
@@ -105,6 +124,8 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
         properties.add(CSVUtils.CHARSET);
         properties.add(CSVUtils.ALLOW_DUPLICATE_HEADER_NAMES);
         properties.add(TRIM_DOUBLE_QUOTE);
+        properties.add(FIELD_COUNT);
+        properties.add(FAIL_ON_MISMATCH_FIELD_COUNT);
         return properties;
     }
 
@@ -149,9 +170,11 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
         }
 
         final boolean trimDoubleQuote = context.getProperty(TRIM_DOUBLE_QUOTE).asBoolean();
+        final Integer fieldCount = context.getProperty(FIELD_COUNT).asInteger();
+        final boolean failOnMismatchFieldCount = context.getProperty(FAIL_ON_MISMATCH_FIELD_COUNT).asBoolean();
 
         if (APACHE_COMMONS_CSV.getValue().equals(csvParser)) {
-            return new CSVRecordReader(in, logger, schema, format, firstLineIsHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, charSet, trimDoubleQuote);
+            return new CSVRecordReader(in, logger, schema, format, firstLineIsHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, charSet, trimDoubleQuote, fieldCount, failOnMismatchFieldCount);
         } else if (JACKSON_CSV.getValue().equals(csvParser)) {
             return new JacksonCSVRecordReader(in, logger, schema, format, firstLineIsHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, charSet, trimDoubleQuote);
         } else {

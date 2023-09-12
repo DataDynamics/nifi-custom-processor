@@ -3,8 +3,8 @@ package io.datadynamics.nifi.record.csv;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.serialization.MalformedRecordException;
-import org.apache.nifi.serialization.record.*;
 import org.apache.nifi.serialization.record.Record;
+import org.apache.nifi.serialization.record.*;
 import shaded.org.apache.commons.csv.CSVFormat;
 import shaded.org.apache.commons.csv.CSVParser;
 import shaded.org.apache.commons.csv.CSVRecord;
@@ -21,8 +21,8 @@ public class CSVRecordReader extends AbstractCSVRecordReader {
     private List<RecordField> recordFields;
 
     public CSVRecordReader(final InputStream in, final ComponentLog logger, final RecordSchema schema, final CSVFormat csvFormat, final boolean hasHeader, final boolean ignoreHeader,
-                           final String dateFormat, final String timeFormat, final String timestampFormat, final String encoding, final boolean trimDoubleQuote) throws IOException {
-        super(logger, schema, hasHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, trimDoubleQuote);
+                           final String dateFormat, final String timeFormat, final String timestampFormat, final String encoding, final boolean trimDoubleQuote, Integer fieldCount, boolean failOnMismatchFieldCount) throws IOException {
+        super(logger, schema, hasHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, trimDoubleQuote, fieldCount, failOnMismatchFieldCount);
 
         final Reader reader = new InputStreamReader(new BOMInputStream(in), encoding);
 
@@ -39,17 +39,18 @@ public class CSVRecordReader extends AbstractCSVRecordReader {
             withHeader = csvFormat.withHeader(schema.getFieldNames().toArray(new String[0]));
         }
 
+        withHeader = csvFormat.withFieldCount(fieldCount).withValidateFieldCount(failOnMismatchFieldCount);
+
         csvParser = new CSVParser(reader, withHeader);
     }
 
     public CSVRecordReader(final InputStream in, final ComponentLog logger, final RecordSchema schema, final CSVFormat csvFormat, final boolean hasHeader, final boolean ignoreHeader,
-                           final String dateFormat, final String timeFormat, final String timestampFormat, final String encoding) throws IOException {
-        this(in, logger, schema, csvFormat, hasHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, encoding, true);
+                           final String dateFormat, final String timeFormat, final String timestampFormat, final String encoding, Integer fieldCount, boolean failOnMismatchFieldCount) throws IOException {
+        this(in, logger, schema, csvFormat, hasHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, encoding, true, fieldCount, failOnMismatchFieldCount);
     }
 
     @Override
     public Record nextRecord(final boolean coerceTypes, final boolean dropUnknownFields) throws IOException, MalformedRecordException {
-
         try {
             final RecordSchema schema = getSchema();
 

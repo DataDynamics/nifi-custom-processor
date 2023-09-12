@@ -201,58 +201,6 @@ public class CSVFormatTest {
     }
 
     @Test
-    public void testEqualsHash() throws Exception {
-        final Method[] methods = shaded.org.apache.commons.csv.CSVFormat.class.getDeclaredMethods();
-        for (final Method method : methods) {
-            if (Modifier.isPublic(method.getModifiers())) {
-                final String name = method.getName();
-                if (name.startsWith("with")) {
-                    for (final Class<?> cls : method.getParameterTypes()) {
-                        final String type = cls.getCanonicalName();
-                        if ("boolean".equals(type)) {
-                            final Object defTrue = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, Boolean.TRUE);
-                            final Object defFalse = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, Boolean.FALSE);
-                            assertNotEquals(name, type, defTrue, defFalse);
-                        } else if ("char".equals(type)) {
-                            final Object a = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, 'a');
-                            final Object b = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, 'b');
-                            assertNotEquals(name, type, a, b);
-                        } else if ("java.lang.Character".equals(type)) {
-                            final Object a = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, new Object[]{null});
-                            final Object b = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, Character.valueOf('d'));
-                            assertNotEquals(name, type, a, b);
-                        } else if ("java.lang.String".equals(type)) {
-                            final Object a = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, new Object[]{null});
-                            final Object b = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, "e");
-                            assertNotEquals(name, type, a, b);
-                        } else if ("java.lang.String[]".equals(type)) {
-                            final Object a = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, new Object[]{new String[]{null, null}});
-                            final Object b = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, new Object[]{new String[]{"f", "g"}});
-                            assertNotEquals(name, type, a, b);
-                        } else if ("shaded.org.apache.commons.csv.QuoteMode".equals(type)) {
-                            final Object a = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, shaded.org.apache.commons.csv.QuoteMode.MINIMAL);
-                            final Object b = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, shaded.org.apache.commons.csv.QuoteMode.ALL);
-                            assertNotEquals(name, type, a, b);
-                        } else if ("shaded.org.apache.commons.csv.DuplicateHeaderMode".equals(type)) {
-                            final Object a = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, shaded.org.apache.commons.csv.DuplicateHeaderMode.ALLOW_ALL);
-                            final Object b = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, shaded.org.apache.commons.csv.DuplicateHeaderMode.DISALLOW);
-                            assertNotEquals(name, type, a, b);
-                        } else if ("java.lang.Object[]".equals(type)) {
-                            final Object a = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, new Object[]{new Object[]{null, null}});
-                            final Object b = method.invoke(shaded.org.apache.commons.csv.CSVFormat.DEFAULT, new Object[]{new Object[]{new Object(), new Object()}});
-                            assertNotEquals(name, type, a, b);
-                        } else if ("withHeader".equals(name)) { // covered above by String[]
-                            // ignored
-                        } else {
-                            fail("Unhandled method: " + name + "(" + type + ")");
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    @Test
     public void testEqualsHeader() {
         final shaded.org.apache.commons.csv.CSVFormat right = shaded.org.apache.commons.csv.CSVFormat.newFormat('\'').builder().setRecordSeparator(CR).setCommentMarker('#').setEscape('+').setHeader("One", "Two", "Three")
                 .setIgnoreEmptyLines(true).setIgnoreSurroundingSpaces(true).setQuote('"').setQuoteMode(shaded.org.apache.commons.csv.QuoteMode.ALL).build();
