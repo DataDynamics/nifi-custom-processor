@@ -1,6 +1,5 @@
 package io.datadynamics.nifi.record.csv;
 
-import shaded.org.apache.commons.csv.CSVFormat;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnEnabled;
@@ -22,6 +21,7 @@ import org.apache.nifi.serialization.RecordReaderFactory;
 import org.apache.nifi.serialization.SchemaRegistryService;
 import org.apache.nifi.serialization.record.RecordSchema;
 import org.apache.nifi.stream.io.NonCloseableInputStream;
+import shaded.org.apache.commons.csv.CSVFormat;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,13 +32,13 @@ import java.util.Map;
 
 @Tags({"csv", "parse", "record", "row", "reader", "delimited", "comma", "separated", "values"})
 @CapabilityDescription("Parses CSV-formatted data, returning each row in the CSV file as a separate record. "
-    + "This reader allows for inferring a schema based on the first line of the CSV, if a 'header line' is present, or providing an explicit schema "
-    + "for interpreting the values. See Controller Service's Usage for further documentation.")
+        + "This reader allows for inferring a schema based on the first line of the CSV, if a 'header line' is present, or providing an explicit schema "
+        + "for interpreting the values. See Controller Service's Usage for further documentation.")
 public class CSVReader extends SchemaRegistryService implements RecordReaderFactory {
 
     private static final AllowableValue HEADER_DERIVED = new AllowableValue("csv-header-derived", "Use String Fields From Header",
-        "The first non-comment line of the CSV file is a header line that contains the names of the columns. The schema will be derived by using the "
-            + "column names in the header and assuming that all columns are of type String.");
+            "The first non-comment line of the CSV file is a header line that contains the names of the columns. The schema will be derived by using the "
+                    + "column names in the header and assuming that all columns are of type String.");
 
     // CSV parsers
     public static final AllowableValue APACHE_COMMONS_CSV = new AllowableValue("commons-csv", "Apache Commons CSV",
@@ -62,22 +62,12 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
     public static final PropertyDescriptor TRIM_DOUBLE_QUOTE = new PropertyDescriptor.Builder()
             .name("Trim double quote")
             .description("Whether or not to trim starting and ending double quotes. For example: with trim string '\"test\"'"
-                    +" would be parsed to 'test', without trim would be parsed to '\"test\"'."
+                    + " would be parsed to 'test', without trim would be parsed to '\"test\"'."
                     + "If set to 'false' it means full compliance with RFC-4180. Default value is true, with trim.")
             .expressionLanguageSupported(ExpressionLanguageScope.NONE)
             .allowableValues("true", "false")
             .defaultValue("true")
             .dependsOn(CSVUtils.CSV_FORMAT, CSVUtils.RFC_4180)
-            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
-            .required(true)
-            .build();
-
-    public static final PropertyDescriptor FAIL_ON_MISSING_COLUMNS = new PropertyDescriptor.Builder()
-            .name("Fail on missing columns (Jackson)")
-            .description("Feature that allows failing in cases where number of column values encountered is less than number of columns declared in active schema (\"missing columns\").")
-            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
-            .allowableValues("true", "false")
-            .defaultValue("true")
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .required(true)
             .build();
@@ -91,7 +81,6 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
     private volatile boolean firstLineIsHeader;
     private volatile boolean ignoreHeader;
     private volatile String charSet;
-    private volatile boolean failOnMissingColumns;
 
     // it will be initialized only if there are no dynamic csv formatting properties
     private volatile CSVFormat csvFormat;
@@ -116,7 +105,6 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
         properties.add(CSVUtils.CHARSET);
         properties.add(CSVUtils.ALLOW_DUPLICATE_HEADER_NAMES);
         properties.add(TRIM_DOUBLE_QUOTE);
-        properties.add(FAIL_ON_MISSING_COLUMNS);
         return properties;
     }
 
@@ -131,7 +119,6 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
         this.firstLineIsHeader = context.getProperty(CSVUtils.FIRST_LINE_IS_HEADER).asBoolean();
         this.ignoreHeader = context.getProperty(CSVUtils.IGNORE_CSV_HEADER).asBoolean();
         this.charSet = context.getProperty(CSVUtils.CHARSET).getValue();
-        this.failOnMissingColumns = context.getProperty(FAIL_ON_MISSING_COLUMNS).asBoolean();
 
         // Ensure that if we are deriving schema from header that we always treat the first line as a header,
         // regardless of the 'First Line is Header' property
@@ -166,7 +153,7 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
         if (APACHE_COMMONS_CSV.getValue().equals(csvParser)) {
             return new CSVRecordReader(in, logger, schema, format, firstLineIsHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, charSet, trimDoubleQuote);
         } else if (JACKSON_CSV.getValue().equals(csvParser)) {
-            return new JacksonCSVRecordReader(in, logger, schema, format, firstLineIsHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, charSet, trimDoubleQuote, failOnMissingColumns);
+            return new JacksonCSVRecordReader(in, logger, schema, format, firstLineIsHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, charSet, trimDoubleQuote);
         } else {
             throw new IOException("Parser not supported");
         }

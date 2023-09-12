@@ -4,6 +4,7 @@ import org.apache.commons.io.input.BOMInputStream;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.serialization.MalformedRecordException;
 import org.apache.nifi.serialization.record.*;
+import org.apache.nifi.serialization.record.Record;
 import shaded.org.apache.commons.csv.CSVFormat;
 import shaded.org.apache.commons.csv.CSVParser;
 import shaded.org.apache.commons.csv.CSVRecord;

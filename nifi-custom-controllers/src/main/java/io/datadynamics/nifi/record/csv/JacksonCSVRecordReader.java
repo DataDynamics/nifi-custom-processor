@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvParser;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import shaded.org.apache.commons.csv.CSVFormat;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -14,13 +15,13 @@ import org.apache.nifi.serialization.record.DataType;
 import org.apache.nifi.serialization.record.MapRecord;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.RecordSchema;
-import shaded.org.apache.commons.csv.CSVFormat;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.*;
+
 
 public class JacksonCSVRecordReader extends AbstractCSVRecordReader {
     private final MappingIterator<String[]> recordStream;
@@ -30,7 +31,7 @@ public class JacksonCSVRecordReader extends AbstractCSVRecordReader {
     private volatile static CsvMapper mapper = new CsvMapper().enable(CsvParser.Feature.WRAP_AS_ARRAY);
 
     public JacksonCSVRecordReader(final InputStream in, final ComponentLog logger, final RecordSchema schema, final CSVFormat csvFormat, final boolean hasHeader, final boolean ignoreHeader,
-                                  final String dateFormat, final String timeFormat, final String timestampFormat, final String encoding, final boolean trimDoubleQuote, boolean failOnMissingColumns) throws IOException {
+                                  final String dateFormat, final String timeFormat, final String timestampFormat, final String encoding, final boolean trimDoubleQuote) throws IOException {
         super(logger, schema, hasHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, trimDoubleQuote);
 
         final Reader reader = new InputStreamReader(new BOMInputStream(in), encoding);
@@ -59,9 +60,6 @@ public class JacksonCSVRecordReader extends AbstractCSVRecordReader {
         // Add remaining config options to the mapper
         List<CsvParser.Feature> features = new ArrayList<>();
         features.add(CsvParser.Feature.INSERT_NULLS_FOR_MISSING_COLUMNS);
-        if (failOnMissingColumns) { // FIXED
-            features.add(CsvParser.Feature.FAIL_ON_MISSING_COLUMNS);
-        }
         if (csvFormat.getIgnoreEmptyLines()) {
             features.add(CsvParser.Feature.SKIP_EMPTY_LINES);
         }
@@ -77,8 +75,8 @@ public class JacksonCSVRecordReader extends AbstractCSVRecordReader {
     }
 
     public JacksonCSVRecordReader(final InputStream in, final ComponentLog logger, final RecordSchema schema, final CSVFormat csvFormat, final boolean hasHeader, final boolean ignoreHeader,
-                                  final String dateFormat, final String timeFormat, final String timestampFormat, final String encoding, final boolean failOnMissingColumns) throws IOException {
-        this(in, logger, schema, csvFormat, hasHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, encoding, true, failOnMissingColumns);
+                                  final String dateFormat, final String timeFormat, final String timestampFormat, final String encoding) throws IOException {
+        this(in, logger, schema, csvFormat, hasHeader, ignoreHeader, dateFormat, timeFormat, timestampFormat, encoding, true);
     }
 
     @Override
