@@ -79,4 +79,4 @@
  * </pre></blockquote>
  */
 
-package org.apache.commons.csv;
+package shaded.org.apache.commons.csv;

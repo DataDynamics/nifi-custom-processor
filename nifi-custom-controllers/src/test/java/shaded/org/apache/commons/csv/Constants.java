@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.commons.csv;
+package shaded.org.apache.commons.csv;
 
 /**
  * Constants for this package.

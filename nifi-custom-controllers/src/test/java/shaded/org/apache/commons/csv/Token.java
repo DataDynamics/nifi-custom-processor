@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.commons.csv;
+package shaded.org.apache.commons.csv;
 
 import static shaded.org.apache.commons.csv.Token.Type.INVALID;
 

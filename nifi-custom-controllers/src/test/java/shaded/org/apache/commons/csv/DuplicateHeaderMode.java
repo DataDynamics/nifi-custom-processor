@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.commons.csv;
+package shaded.org.apache.commons.csv;
 
 import shaded.org.apache.commons.csv.CSVFormat;
 
