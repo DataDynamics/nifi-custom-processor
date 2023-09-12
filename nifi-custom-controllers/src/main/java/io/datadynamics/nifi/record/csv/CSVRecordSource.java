@@ -5,7 +5,6 @@ import shaded.org.apache.commons.csv.CSVParser;
 import shaded.org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.nifi.context.PropertyContext;
-import org.apache.nifi.csv.CSVUtils;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.schema.inference.RecordSource;
 

@@ -4,7 +4,6 @@ import shaded.org.apache.commons.csv.CSVFormat;
 import shaded.org.apache.commons.csv.CSVParser;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.nifi.context.PropertyContext;
-import org.apache.nifi.csv.CSVUtils;
 import org.apache.nifi.schema.access.SchemaAccessStrategy;
 import org.apache.nifi.schema.access.SchemaField;
 import org.apache.nifi.schema.access.SchemaNotFoundException;

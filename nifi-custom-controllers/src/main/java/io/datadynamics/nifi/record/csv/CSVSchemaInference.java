@@ -1,6 +1,5 @@
 package io.datadynamics.nifi.record.csv;
 
-import shaded.org.apache.commons.csv.CSVRecord;
 import org.apache.nifi.schema.inference.FieldTypeInference;
 import org.apache.nifi.schema.inference.RecordSource;
 import org.apache.nifi.schema.inference.SchemaInferenceEngine;
@@ -10,6 +9,7 @@ import org.apache.nifi.serialization.record.DataType;
 import org.apache.nifi.serialization.record.RecordField;
 import org.apache.nifi.serialization.record.RecordSchema;
 import org.apache.nifi.util.SchemaInferenceUtil;
+import shaded.org.apache.commons.csv.CSVRecord;
 
 import java.io.IOException;
 import java.util.ArrayList;

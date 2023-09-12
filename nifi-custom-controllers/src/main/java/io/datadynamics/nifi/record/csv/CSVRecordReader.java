@@ -1,13 +1,12 @@
 package io.datadynamics.nifi.record.csv;
 
-import shaded.org.apache.commons.csv.CSVFormat;
-import shaded.org.apache.commons.csv.CSVParser;
-import shaded.org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.serialization.MalformedRecordException;
-import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.*;
+import shaded.org.apache.commons.csv.CSVFormat;
+import shaded.org.apache.commons.csv.CSVParser;
+import shaded.org.apache.commons.csv.CSVRecord;
 
 import java.io.IOException;
 import java.io.InputStream;
