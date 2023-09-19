@@ -252,7 +252,6 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
 
                     final Call call = httpClient.newCall(request);
                     try (final Response response = call.execute()) {
-
                         if (!response.isSuccessful()) {
                             getLogger().warn("{}", String.format("External HTTP Service 호출에 실패했습니다. URL : %s, Status Code : %s, Response Body : %s", externalHttpUrl, response.code(), response.body().string()));
                         }

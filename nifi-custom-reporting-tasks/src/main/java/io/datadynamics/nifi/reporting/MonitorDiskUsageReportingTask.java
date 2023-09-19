@@ -31,27 +31,12 @@ import java.util.regex.Pattern;
 @CapabilityDescription("지정된 디렉토리에 사용 가능한 저장 공간의 양을 확인하고 해당 디렉토리가 있는 파티션이 구성 가능한 저장 공간 임계값을 초과하는 경우 로그 메시지 및 시스템 수준 Bulletin을 통해 경고합니다. 또한 외부 서비스에 해당 알림을 발송합니다.")
 public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
 
-    private static final Pattern PERCENT_PATTERN = Pattern.compile("(\\d+{1,2})%");
-
-    private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
-
-    public static ObjectMapper mapper = new ObjectMapper();
-
-    public static final PropertyDescriptor DIR_THRESHOLD = new PropertyDescriptor.Builder()
-            .name("임계치")
-            .description("디렉터리가 있는 파티션의 디스크 사용량이 문제임을 나타내기 위해 Bulletin에 생성되는 임계값입니다.")
-            .required(true)
-            .addValidator(StandardValidators.createRegexMatchingValidator(PERCENT_PATTERN))
-            .defaultValue("80%")
-            .build();
-
     public static final PropertyDescriptor DIR_LOCATION = new PropertyDescriptor.Builder()
             .name("디렉토리 경로")
             .description("모니터링할 파티션의 디렉토리 경로입니다.")
             .required(true)
             .addValidator(StandardValidators.createDirectoryExistsValidator(false, false))
             .build();
-
     public static final PropertyDescriptor DIR_DISPLAY_NAME = new PropertyDescriptor.Builder()
             .name("Alert에 표시할 디렉토리 명")
             .description("Alert에 디렉터리에 대해 표시할 이름입니다.")
@@ -59,7 +44,6 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
             .addValidator(StandardValidators.NON_BLANK_VALIDATOR)
             .defaultValue("Un-Named")
             .build();
-
     public static final PropertyDescriptor EXTERNAL_HTTP_URL = new PropertyDescriptor.Builder()
             .name("외부에 통보할 HTTP URL")
             .description("외부 서비스에 HTTP URL을 호출하여 정보를 전달합니다.")
@@ -67,7 +51,6 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
             .addValidator(StandardValidators.URL_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
-
     public static final PropertyDescriptor EXTERNAL_HTTP_URL_ENABLE = new PropertyDescriptor.Builder()
             .name("HTTP URL 통보 여부")
             .description("Alert에 디렉터리에 대해 표시할 이름입니다.")
@@ -77,7 +60,6 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .defaultValue("false")
             .build();
-
     public static final PropertyDescriptor HTTP_CONNECTION_TIMEOUT = new PropertyDescriptor.Builder()
             .name("HTTP Connection 타임아웃")
             .description("원격 서비스 연결을 위한 최대 대기 시간입니다.")
@@ -85,7 +67,6 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue("10s")
             .build();
-
     public static final PropertyDescriptor HTTP_WRITE_TIMEOUT = new PropertyDescriptor.Builder()
             .name("HTTP Write 타임아웃")
             .description("원격 서비스가 전송한 요청을 읽는 데 걸리는 최대 대기 시간입니다.")
@@ -93,6 +74,16 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue("10s")
             .build();
+    private static final Pattern PERCENT_PATTERN = Pattern.compile("(\\d+{1,2})%");
+    public static final PropertyDescriptor DIR_THRESHOLD = new PropertyDescriptor.Builder()
+            .name("임계치")
+            .description("디렉터리가 있는 파티션의 디스크 사용량이 문제임을 나타내기 위해 Bulletin에 생성되는 임계값입니다.")
+            .required(true)
+            .addValidator(StandardValidators.createRegexMatchingValidator(PERCENT_PATTERN))
+            .defaultValue("80%")
+            .build();
+    public static ObjectMapper mapper = new ObjectMapper();
+    private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
@@ -193,7 +184,6 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
 
                     final Call call = httpClient.newCall(request);
                     try (final Response response = call.execute()) {
-
                         if (!response.isSuccessful()) {
                             logger.warn("{}", String.format("External HTTP Service 호출에 실패했습니다. URL : %s, Status Code : %s, Response Body : %s", externalHttpUrl, response.code(), response.body().string()));
                         }
