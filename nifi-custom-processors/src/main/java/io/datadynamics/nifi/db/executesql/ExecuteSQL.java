@@ -21,7 +21,7 @@ import static io.datadynamics.nifi.db.executesql.JdbcProperties.*;
 
 @EventDriven
 @InputRequirement(Requirement.INPUT_ALLOWED)
-@Tags({"sql", "select", "jdbc", "query", "database"})
+@Tags({"dd", "custom", "sql", "select", "jdbc", "query", "database"})
 @CapabilityDescription("Executes provided SQL select query. Query result will be converted to Avro format."
         + " Streaming is used so arbitrarily large result sets are supported. This processor can be scheduled to run on "
         + "a timer, or cron expression, using the standard scheduling methods, or it can be triggered by an incoming FlowFile. "

@@ -55,7 +55,7 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.*;
 
 @EventDriven
 @InputRequirement(Requirement.INPUT_REQUIRED)
-@Tags({"sql", "record", "jdbc", "put", "database", "update", "insert", "delete"})
+@Tags({"dd", "custom", "sql", "record", "jdbc", "put", "database", "update", "insert", "delete"})
 @CapabilityDescription("The PutDatabaseRecord processor uses a specified RecordReader to input (possibly multiple) records from an incoming flow file. These records are translated to SQL "
         + "statements and executed as a single transaction. If any errors occur, the flow file is routed to failure or retry, and if the records are transmitted successfully, "
         + "the incoming flow file is "

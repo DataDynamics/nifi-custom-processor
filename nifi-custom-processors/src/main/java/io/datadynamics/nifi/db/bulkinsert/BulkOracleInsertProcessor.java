@@ -40,7 +40,7 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.VARIABLE_REGIST
  * Oracle DB에 FlowFile의 Content를 포함하는 데이터를 Bulk Insert를 수행하는 Processor.
  */
 @InputRequirement(InputRequirement.Requirement.INPUT_FORBIDDEN)
-@Tags({"sql", "select", "jdbc", "query", "database"})
+@Tags({"dd", "custom", "sql", "select", "jdbc", "query", "database"})
 public class BulkOracleInsertProcessor extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
