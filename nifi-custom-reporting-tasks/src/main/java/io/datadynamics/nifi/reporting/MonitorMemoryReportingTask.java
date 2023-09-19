@@ -1,11 +1,14 @@
 package io.datadynamics.nifi.reporting;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import okhttp3.*;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.annotation.lifecycle.OnStopped;
 import org.apache.nifi.components.*;
 import org.apache.nifi.controller.ConfigurationContext;
+import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.DataUnit;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.AbstractReportingTask;
@@ -16,11 +19,10 @@ import org.apache.nifi.util.FormatUtils;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;
 import java.lang.management.MemoryUsage;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.net.InetAddress;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
@@ -69,6 +71,10 @@ import java.util.regex.Pattern;
 @CapabilityDescription("특정 JVM 메모리 풀에 대해 JVM에서 사용 가능한 Java 힙의 양을 확인합니다. 사용된 공간의 양이 구성 가능한 일부 임계값을 초과하는 경우 로그 메시지 및 시스템 수준 게시판을 통해 메모리 풀이 이 임계값을 초과한다고 경고합니다.")
 public class MonitorMemoryReportingTask extends AbstractReportingTask {
 
+    private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
+
+    public static ObjectMapper mapper = new ObjectMapper();
+
     private static final List<String> GC_OLD_GEN_POOLS = Collections.unmodifiableList(Arrays.asList("Tenured Gen", "PS Old Gen", "G1 Old Gen", "CMS Old Gen", "ZHeap"));
     private static final AllowableValue[] memPoolAllowableValues;
     private static String defaultMemoryPool;
@@ -115,6 +121,41 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
             .defaultValue(null)
             .build();
 
+
+    public static final PropertyDescriptor EXTERNAL_HTTP_URL = new PropertyDescriptor.Builder()
+            .name("외부에 통보할 HTTP URL")
+            .description("외부 서비스에 HTTP URL을 호출하여 정보를 전달합니다.")
+            .required(false)
+            .addValidator(StandardValidators.URL_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .build();
+
+    public static final PropertyDescriptor EXTERNAL_HTTP_URL_ENABLE = new PropertyDescriptor.Builder()
+            .name("HTTP URL 통보 여부")
+            .description("Alert에 디렉터리에 대해 표시할 이름입니다.")
+            .required(true)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .dependsOn(EXTERNAL_HTTP_URL)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .defaultValue("false")
+            .build();
+
+    public static final PropertyDescriptor HTTP_CONNECTION_TIMEOUT = new PropertyDescriptor.Builder()
+            .name("HTTP Connection 타임아웃")
+            .description("원격 서비스 연결을 위한 최대 대기 시간입니다.")
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
+            .defaultValue("10s")
+            .build();
+
+    public static final PropertyDescriptor HTTP_WRITE_TIMEOUT = new PropertyDescriptor.Builder()
+            .name("HTTP Write 타임아웃")
+            .description("원격 서비스가 전송한 요청을 읽는 데 걸리는 최대 대기 시간입니다.")
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
+            .defaultValue("10s")
+            .build();
+
     public static final Pattern PERCENTAGE_PATTERN = Pattern.compile("\\d{1,2}%");
     public static final Pattern DATA_SIZE_PATTERN = DataUnit.DATA_SIZE_PATTERN;
     public static final Pattern TIME_PERIOD_PATTERN = FormatUtils.TIME_DURATION_PATTERN;
@@ -133,6 +174,10 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
         _propertyDescriptors.add(MEMORY_POOL_PROPERTY);
         _propertyDescriptors.add(THRESHOLD_PROPERTY);
         _propertyDescriptors.add(REPORTING_INTERVAL);
+        _propertyDescriptors.add(EXTERNAL_HTTP_URL_ENABLE);
+        _propertyDescriptors.add(EXTERNAL_HTTP_URL);
+        _propertyDescriptors.add(HTTP_CONNECTION_TIMEOUT);
+        _propertyDescriptors.add(HTTP_WRITE_TIMEOUT);
         propertyDescriptors = Collections.unmodifiableList(_propertyDescriptors);
     }
 
@@ -142,14 +187,14 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
     }
 
     @OnScheduled
-    public void onConfigured(final ConfigurationContext config) throws InitializationException {
-        final String desiredMemoryPoolName = config.getProperty(MEMORY_POOL_PROPERTY).getValue();
-        final String thresholdValue = config.getProperty(THRESHOLD_PROPERTY).getValue().trim();
+    public void onConfigured(final ConfigurationContext context) throws InitializationException {
+        final String desiredMemoryPoolName = context.getProperty(MEMORY_POOL_PROPERTY).getValue();
+        final String thresholdValue = context.getProperty(THRESHOLD_PROPERTY).getValue().trim();
         threshold = thresholdValue;
 
-        final Long reportingIntervalValue = config.getProperty(REPORTING_INTERVAL).asTimePeriod(TimeUnit.MILLISECONDS);
+        final Long reportingIntervalValue = context.getProperty(REPORTING_INTERVAL).asTimePeriod(TimeUnit.MILLISECONDS);
         if (reportingIntervalValue == null) {
-            reportingIntervalMillis = config.getSchedulingPeriod(TimeUnit.MILLISECONDS);
+            reportingIntervalMillis = context.getSchedulingPeriod(TimeUnit.MILLISECONDS);
         } else {
             reportingIntervalMillis = reportingIntervalValue;
         }
@@ -179,6 +224,23 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
         if (monitoredBean == null) {
             throw new InitializationException("Found no JVM Memory Pool with name " + desiredMemoryPoolName + "; will not monitor Memory Pool");
         }
+
+        /////////////////////////////////////////
+        // External HTTP Service
+        /////////////////////////////////////////
+
+        httpClientReference.set(null);
+
+        final OkHttpClient.Builder okHttpClientBuilder = new OkHttpClient.Builder();
+
+        Long connectTimeout = context.getProperty(HTTP_CONNECTION_TIMEOUT).asTimePeriod(TimeUnit.MILLISECONDS);
+        Long writeTimeout = context.getProperty(HTTP_WRITE_TIMEOUT).asTimePeriod(TimeUnit.MILLISECONDS);
+
+        // Set timeouts
+        okHttpClientBuilder.connectTimeout(connectTimeout, TimeUnit.MILLISECONDS);
+        okHttpClientBuilder.writeTimeout(writeTimeout, TimeUnit.MILLISECONDS);
+
+        httpClientReference.set(okHttpClientBuilder.build());
     }
 
     @Override
@@ -187,6 +249,9 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
         if (bean == null) {
             return;
         }
+
+        final boolean isExternalHttpUrlEnable = context.getProperty(EXTERNAL_HTTP_URL_ENABLE).asBoolean();
+        final String externalHttpUrl = context.getProperty(EXTERNAL_HTTP_URL).getValue();
 
         final MemoryUsage usage = bean.getCollectionUsage();
         if (usage == null) {
@@ -209,6 +274,47 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
                     FormatUtils.formatDataSize(usage.getMax()), percentageUsed);
 
             getLogger().warn("{}", new Object[]{message});
+
+            /////////////////////////////////////////
+            // External HTTP Service
+            /////////////////////////////////////////
+
+            if (isExternalHttpUrlEnable) {
+                try {
+                    Map params = new HashMap();
+                    params.put("hostname", InetAddress.getLocalHost().getHostName());
+                    params.put("type", "JVMHeapUsage");
+                    params.put("percentageUsed", percentageUsed);
+                    params.put("memoryPoolName", monitoredBean.getName());
+                    params.put("used", usage.getUsed());
+                    params.put("max", usage.getMax());
+                    params.put("init", usage.getInit());
+                    params.put("commited", usage.getCommitted());
+
+                    String json = mapper.writeValueAsString(params);
+                    final RequestBody requestBody = RequestBody.create(json, MediaType.parse("application/json"));
+
+                    Request.Builder requestBuilder = new Request.Builder()
+                            .post(requestBody)
+                            .url(externalHttpUrl);
+
+                    final Request request = requestBuilder
+                            .addHeader("Content-Type", "application/json")
+                            .build();
+
+                    final OkHttpClient httpClient = httpClientReference.get();
+
+                    final Call call = httpClient.newCall(request);
+                    try (final Response response = call.execute()) {
+
+                        if (!response.isSuccessful()) {
+                            getLogger().warn("{}", String.format("External HTTP Service 호출에 실패했습니다. URL : %s, Status Code : %s, Response Body : %s", externalHttpUrl, response.code(), response.body().string()));
+                        }
+                    }
+                } catch (Exception e) {
+                    getLogger().warn("{}", String.format("External HTTP Service 호출에 실패했습니다. URL : %s", externalHttpUrl), e);
+                }
+            }
         } else if (lastValueWasExceeded) {
             lastValueWasExceeded = false;
             lastReportTime = System.currentTimeMillis();

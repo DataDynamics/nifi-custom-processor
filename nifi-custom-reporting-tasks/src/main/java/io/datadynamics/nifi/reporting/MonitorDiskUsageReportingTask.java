@@ -16,6 +16,7 @@ import org.apache.nifi.util.FormatUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,11 +31,11 @@ import java.util.regex.Pattern;
 @CapabilityDescription("지정된 디렉토리에 사용 가능한 저장 공간의 양을 확인하고 해당 디렉토리가 있는 파티션이 구성 가능한 저장 공간 임계값을 초과하는 경우 로그 메시지 및 시스템 수준 Bulletin을 통해 경고합니다. 또한 외부 서비스에 해당 알림을 발송합니다.")
 public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
 
-    public static ObjectMapper mapper = new ObjectMapper();
-
     private static final Pattern PERCENT_PATTERN = Pattern.compile("(\\d+{1,2})%");
 
     private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
+
+    public static ObjectMapper mapper = new ObjectMapper();
 
     public static final PropertyDescriptor DIR_THRESHOLD = new PropertyDescriptor.Builder()
             .name("임계치")
@@ -167,6 +168,8 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
             if (isExternalHttpUrlEnable) {
                 try {
                     Map params = new HashMap();
+                    params.put("hostname", InetAddress.getLocalHost().getHostName());
+                    params.put("type", "DiskUsage");
                     params.put("pathName", pathName);
                     params.put("threshold", threshold);
                     params.put("usedSpace", usedSpace);
