@@ -153,8 +153,16 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
 
             final double freePercent = (double) freeBytes / (double) totalBytes * 100D;
 
+            /////////////////////////////////////////
+            // Bulletin Board
+            /////////////////////////////////////////
+
             final String message = String.format("%1$s exceeds configured threshold of %2$s%%, having %3$s / %4$s (%5$.2f%%) used and %6$s (%7$.2f%%) free", pathName, threshold, usedSpace, totalSpace, usedPercent, freeSpace, freePercent);
             logger.warn(message);
+
+            /////////////////////////////////////////
+            // External HTTP Service
+            /////////////////////////////////////////
 
             if (isExternalHttpUrlEnable) {
                 try {

@@ -195,8 +195,7 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
 
         final MemoryUsage usage = bean.getCollectionUsage();
         if (usage == null) {
-            getLogger().warn("{} could not determine memory usage for pool with name {}", new Object[]{this,
-                    context.getProperty(MEMORY_POOL_PROPERTY)});
+            getLogger().warn("{} could not determine memory usage for pool with name {}", new Object[]{this, context.getProperty(MEMORY_POOL_PROPERTY)});
             return;
         }
 
@@ -232,7 +231,6 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
     }
 
     private static class ThresholdValidator implements Validator {
-
         @Override
         public ValidationResult validate(final String subject, final String input, final ValidationContext context) {
 
