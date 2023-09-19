@@ -25,59 +25,72 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
-/**
- * Reporting task used to monitor usage of memory after Garbage Collection has
- * been performed.
- * <p>
- * Each time this ReportingTask runs, it checks the amount of memory that was
- * used in the configured Memory Pool after the last garbage collection took
- * place. If the amount of memory used exceeds a configurable threshold, a
- * System-Level Bulletin is generated and a message is logged. If the memory
- * usage did not exceed the configured threshold but the previous iteration did,
- * an INFO level message is logged and an associated bulletin published.
- * <p>
- * The following properties are supported:
- *
- * <ul>
- * <li><b>Memory Pool</b> - The name of the JVM Memory Pool. The allowed values
- * depend on the JVM and operating system.
- *
- * <p>
- * <br />The following values are typically supported:
- * <ul>
- * <li>PS Old Gen</li>
- * <li>PS Survivor Space</li>
- * <li>PS Eden Space</li>
- * <li>PS Perm Gen</li>
- * </ul>
- * </li>
- * <li>
- * <b>Usage Threshold</b> - The threshold for memory usage that will cause a
- * notification to occur. The format can either be a percentage (e.g., 80%) or a
- * Data Size (e.g., 1 GB)
- * </li>
- * <li>
- * <b>Reporting Interval</b> - How often a notification should occur in the
- * event that the memory usage exceeds the threshold. This differs from the
- * scheduling period such that having a short value for the scheduling period
- * and a long value for the reportingInterval property will result in checking
- * the memory usage often so that notifications happen quickly but prevents
- * notifications from continually being generated. The format of this property
- * is The Period format (e.g., 5 mins).
- * </li>
- * </ul>
- */
 @Tags({"dd", "custom", "monitor", "memory", "heap", "jvm", "gc", "garbage collection", "warning"})
 @CapabilityDescription("특정 JVM 메모리 풀에 대해 JVM에서 사용 가능한 Java 힙의 양을 확인합니다. 사용된 공간의 양이 구성 가능한 일부 임계값을 초과하는 경우 로그 메시지 및 시스템 수준 게시판을 통해 메모리 풀이 이 임계값을 초과한다고 경고합니다.")
 public class MonitorMemoryReportingTask extends AbstractReportingTask {
 
-    private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
-
-    public static ObjectMapper mapper = new ObjectMapper();
-
+    public static final PropertyDescriptor THRESHOLD_PROPERTY = new PropertyDescriptor.Builder()
+            .name("메모리 사용율")
+            .displayName("메모리 사용율")
+            .description("경고를 생성하는 임계값을 나타냅니다. 백분율 또는 데이터 크기일 수 있습니다.")
+            .required(true)
+            .addValidator(new ThresholdValidator())
+            .defaultValue("65%")
+            .build();
+    public static final PropertyDescriptor REPORTING_INTERVAL = new PropertyDescriptor.Builder()
+            .name("리포팅 간격")
+            .displayName("리포팅 간격")
+            .description("설정한 메모리 사용율 임계값을 초과하는 경우 Bulletin에 레포팅하는 간격을 설정합니다.")
+            .required(false)
+            .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
+            .defaultValue(null)
+            .build();
+    public static final PropertyDescriptor EXTERNAL_HTTP_URL = new PropertyDescriptor.Builder()
+            .name("외부에 통보할 HTTP URL")
+            .description("외부 서비스에 HTTP URL을 호출하여 정보를 전달합니다.")
+            .required(false)
+            .addValidator(StandardValidators.URL_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .build();
+    public static final PropertyDescriptor EXTERNAL_HTTP_URL_ENABLE = new PropertyDescriptor.Builder()
+            .name("HTTP URL 통보 여부")
+            .description("Alert에 디렉터리에 대해 표시할 이름입니다.")
+            .required(true)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .dependsOn(EXTERNAL_HTTP_URL)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .defaultValue("false")
+            .build();
+    public static final PropertyDescriptor HTTP_CONNECTION_TIMEOUT = new PropertyDescriptor.Builder()
+            .name("HTTP Connection 타임아웃")
+            .description("원격 서비스 연결을 위한 최대 대기 시간입니다.")
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
+            .defaultValue("10s")
+            .build();
+    public static final PropertyDescriptor HTTP_WRITE_TIMEOUT = new PropertyDescriptor.Builder()
+            .name("HTTP Write 타임아웃")
+            .description("원격 서비스가 전송한 요청을 읽는 데 걸리는 최대 대기 시간입니다.")
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
+            .defaultValue("10s")
+            .build();
+    public static final Pattern PERCENTAGE_PATTERN = Pattern.compile("\\d{1,2}%");
+    public static final Pattern DATA_SIZE_PATTERN = DataUnit.DATA_SIZE_PATTERN;
+    public static final Pattern TIME_PERIOD_PATTERN = FormatUtils.TIME_DURATION_PATTERN;
     private static final List<String> GC_OLD_GEN_POOLS = Collections.unmodifiableList(Arrays.asList("Tenured Gen", "PS Old Gen", "G1 Old Gen", "CMS Old Gen", "ZHeap"));
     private static final AllowableValue[] memPoolAllowableValues;
+    private final static List<PropertyDescriptor> propertyDescriptors;
+    public static ObjectMapper mapper = new ObjectMapper();
     private static String defaultMemoryPool;
+    public static final PropertyDescriptor MEMORY_POOL_PROPERTY = new PropertyDescriptor.Builder()
+            .name("Memory Pool")
+            .displayName("Memory Pool")
+            .description("모니터링할 JVM 메모리 풀의 이름입니다. 메모리 풀에 허용되는 값은 플랫폼 및 JVM에 따라 다르며 다양한 Java 버전 및 게시된 문서에 따라 다를 수 있습니다. 현재 실행 중인 호스트 플랫폼 및 JVM에서 사용할 수 없는 메모리 풀을 사용하도록 구성된 경우 이 보고 작업은 무효화됩니다.")
+            .required(true)
+            .allowableValues(memPoolAllowableValues)
+            .defaultValue(defaultMemoryPool)
+            .build();
 
     static {
         // Only allow memory pool beans that support usage thresholds, otherwise we wouldn't report anything anyway
@@ -94,81 +107,6 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
                 .orElse(null);
     }
 
-    public static final PropertyDescriptor MEMORY_POOL_PROPERTY = new PropertyDescriptor.Builder()
-            .name("Memory Pool")
-            .displayName("Memory Pool")
-            .description("모니터링할 JVM 메모리 풀의 이름입니다. 메모리 풀에 허용되는 값은 플랫폼 및 JVM에 따라 다르며 다양한 Java 버전 및 게시된 문서에 따라 다를 수 있습니다. 현재 실행 중인 호스트 플랫폼 및 JVM에서 사용할 수 없는 메모리 풀을 사용하도록 구성된 경우 이 보고 작업은 무효화됩니다.")
-            .required(true)
-            .allowableValues(memPoolAllowableValues)
-            .defaultValue(defaultMemoryPool)
-            .build();
-
-    public static final PropertyDescriptor THRESHOLD_PROPERTY = new PropertyDescriptor.Builder()
-            .name("메모리 사용율")
-            .displayName("메모리 사용율")
-            .description("경고를 생성하는 임계값을 나타냅니다. 백분율 또는 데이터 크기일 수 있습니다.")
-            .required(true)
-            .addValidator(new ThresholdValidator())
-            .defaultValue("65%")
-            .build();
-
-    public static final PropertyDescriptor REPORTING_INTERVAL = new PropertyDescriptor.Builder()
-            .name("리포팅 간격")
-            .displayName("리포팅 간격")
-            .description("설정한 메모리 사용율 임계값을 초과하는 경우 Bulletin에 레포팅하는 간격을 설정합니다.")
-            .required(false)
-            .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
-            .defaultValue(null)
-            .build();
-
-
-    public static final PropertyDescriptor EXTERNAL_HTTP_URL = new PropertyDescriptor.Builder()
-            .name("외부에 통보할 HTTP URL")
-            .description("외부 서비스에 HTTP URL을 호출하여 정보를 전달합니다.")
-            .required(false)
-            .addValidator(StandardValidators.URL_VALIDATOR)
-            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
-            .build();
-
-    public static final PropertyDescriptor EXTERNAL_HTTP_URL_ENABLE = new PropertyDescriptor.Builder()
-            .name("HTTP URL 통보 여부")
-            .description("Alert에 디렉터리에 대해 표시할 이름입니다.")
-            .required(true)
-            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
-            .dependsOn(EXTERNAL_HTTP_URL)
-            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
-            .defaultValue("false")
-            .build();
-
-    public static final PropertyDescriptor HTTP_CONNECTION_TIMEOUT = new PropertyDescriptor.Builder()
-            .name("HTTP Connection 타임아웃")
-            .description("원격 서비스 연결을 위한 최대 대기 시간입니다.")
-            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
-            .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
-            .defaultValue("10s")
-            .build();
-
-    public static final PropertyDescriptor HTTP_WRITE_TIMEOUT = new PropertyDescriptor.Builder()
-            .name("HTTP Write 타임아웃")
-            .description("원격 서비스가 전송한 요청을 읽는 데 걸리는 최대 대기 시간입니다.")
-            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
-            .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
-            .defaultValue("10s")
-            .build();
-
-    public static final Pattern PERCENTAGE_PATTERN = Pattern.compile("\\d{1,2}%");
-    public static final Pattern DATA_SIZE_PATTERN = DataUnit.DATA_SIZE_PATTERN;
-    public static final Pattern TIME_PERIOD_PATTERN = FormatUtils.TIME_DURATION_PATTERN;
-
-    private volatile MemoryPoolMXBean monitoredBean;
-    private volatile String threshold = "65%";
-    private volatile long calculatedThreshold;
-    private volatile long lastReportTime;
-    private volatile long reportingIntervalMillis;
-    private volatile boolean lastValueWasExceeded;
-
-    private final static List<PropertyDescriptor> propertyDescriptors;
-
     static {
         List<PropertyDescriptor> _propertyDescriptors = new ArrayList<>();
         _propertyDescriptors.add(MEMORY_POOL_PROPERTY);
@@ -180,6 +118,14 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
         _propertyDescriptors.add(HTTP_WRITE_TIMEOUT);
         propertyDescriptors = Collections.unmodifiableList(_propertyDescriptors);
     }
+
+    private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
+    private volatile MemoryPoolMXBean monitoredBean;
+    private volatile String threshold = "65%";
+    private volatile long calculatedThreshold;
+    private volatile long lastReportTime;
+    private volatile long reportingIntervalMillis;
+    private volatile boolean lastValueWasExceeded;
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
