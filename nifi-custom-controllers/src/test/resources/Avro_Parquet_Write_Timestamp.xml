@@ -411,7 +411,7 @@
                     <bundle>
                         <artifact>nifi-custom-controllers-nar</artifact>
                         <group>io.datadynamics.nifi</group>
-                        <version>1.0.5</version>
+                        <version>1.0.6</version>
                     </bundle>
                     <comments></comments>
                     <descriptors>
@@ -900,7 +900,7 @@
                     <bundle>
                         <artifact>nifi-custom-controllers-nar</artifact>
                         <group>io.datadynamics.nifi</group>
-                        <version>1.0.5</version>
+                        <version>1.0.6</version>
                     </bundle>
                     <comments></comments>
                     <descriptors>

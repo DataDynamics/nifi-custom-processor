@@ -6,7 +6,7 @@
 
         <scp trust="true" todir="root:dd98969321@10.0.1.233:/home/nifi/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
     </target>
@@ -16,32 +16,32 @@
 
         <scp trust="true" todir="root:dd98969321@10.0.1.233:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
         <scp trust="true" todir="root:dd98969321@10.0.1.230:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
         <scp trust="true" todir="root:dd98969321@10.0.1.231:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
         <scp trust="true" todir="root:dd98969321@10.0.1.232:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
         <scp trust="true" todir="root:dd98969321@10.0.1.234:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
         <scp trust="true" todir="root:dd98969321@10.0.1.235:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
     </target>
@@ -51,32 +51,32 @@
 
         <scp trust="true" todir="root:dd98969321@10.0.1.233:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
         <scp trust="true" todir="root:dd98969321@10.0.1.230:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
         <scp trust="true" todir="root:dd98969321@10.0.1.231:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
         <scp trust="true" todir="root:dd98969321@10.0.1.232:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
         <scp trust="true" todir="root:dd98969321@10.0.1.234:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
         <scp trust="true" todir="root:dd98969321@10.0.1.235:/opt/nifi/extensions" failonerror="true">
             <fileset dir="nifi-custom-controllers-nar/target">
-                <include name="nifi-custom-controllers-nar-1.0.5.nar"/>
+                <include name="nifi-custom-controllers-nar-1.0.6.nar"/>
             </fileset>
         </scp>
     </target>
