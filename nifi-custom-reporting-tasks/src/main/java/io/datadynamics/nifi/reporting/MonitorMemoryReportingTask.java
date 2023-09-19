@@ -66,9 +66,7 @@ import java.util.regex.Pattern;
  * </ul>
  */
 @Tags({"dd", "custom", "monitor", "memory", "heap", "jvm", "gc", "garbage collection", "warning"})
-@CapabilityDescription("Checks the amount of Java Heap available in the JVM for a particular JVM Memory Pool. If the"
-        + " amount of space used exceeds some configurable threshold, will warn (via a log message and System-Level Bulletin)"
-        + " that the memory pool is exceeding this threshold.")
+@CapabilityDescription("특정 JVM 메모리 풀에 대해 JVM에서 사용 가능한 Java 힙의 양을 확인합니다. 사용된 공간의 양이 구성 가능한 일부 임계값을 초과하는 경우 로그 메시지 및 시스템 수준 게시판을 통해 메모리 풀이 이 임계값을 초과한다고 경고합니다.")
 public class MonitorMemoryReportingTask extends AbstractReportingTask {
 
     private static final List<String> GC_OLD_GEN_POOLS = Collections.unmodifiableList(Arrays.asList("Tenured Gen", "PS Old Gen", "G1 Old Gen", "CMS Old Gen", "ZHeap"));
@@ -93,28 +91,25 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
     public static final PropertyDescriptor MEMORY_POOL_PROPERTY = new PropertyDescriptor.Builder()
             .name("Memory Pool")
             .displayName("Memory Pool")
-            .description("The name of the JVM Memory Pool to monitor. The allowed values for Memory Pools are platform and JVM"
-                    + " dependent and may vary for different versions of Java and from published documentation. This reporting"
-                    + " task will become invalidated if configured to use a Memory Pool that is not available on the currently"
-                    + " running host platform and JVM")
+            .description("모니터링할 JVM 메모리 풀의 이름입니다. 메모리 풀에 허용되는 값은 플랫폼 및 JVM에 따라 다르며 다양한 Java 버전 및 게시된 문서에 따라 다를 수 있습니다. 현재 실행 중인 호스트 플랫폼 및 JVM에서 사용할 수 없는 메모리 풀을 사용하도록 구성된 경우 이 보고 작업은 무효화됩니다.")
             .required(true)
             .allowableValues(memPoolAllowableValues)
             .defaultValue(defaultMemoryPool)
             .build();
 
     public static final PropertyDescriptor THRESHOLD_PROPERTY = new PropertyDescriptor.Builder()
-            .name("Usage Threshold")
-            .displayName("Usage Threshold")
-            .description("Indicates the threshold at which warnings should be generated. This can be a percentage or a Data Size")
+            .name("메모리 사용율")
+            .displayName("메모리 사용율")
+            .description("경고를 생성하는 임계값을 나타냅니다. 백분율 또는 데이터 크기일 수 있습니다.")
             .required(true)
             .addValidator(new ThresholdValidator())
             .defaultValue("65%")
             .build();
 
     public static final PropertyDescriptor REPORTING_INTERVAL = new PropertyDescriptor.Builder()
-            .name("Reporting Interval")
-            .displayName("Reporting Interval")
-            .description("Indicates how often this reporting task should report bulletins while the memory utilization exceeds the configured threshold")
+            .name("리포팅 간격")
+            .displayName("리포팅 간격")
+            .description("설정한 메모리 사용율 임계값을 초과하는 경우 Bulletin에 레포팅하는 간격을 설정합니다.")
             .required(false)
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue(null)
