@@ -21,6 +21,7 @@
         <module>nifi-custom-processors-nar</module>
         <module>nifi-custom-controllers-nar</module>
         <module>nifi-custom-notification-service</module>
+        <module>nifi-custom-reporting-tasks</module>
     </modules>
 
 </project>

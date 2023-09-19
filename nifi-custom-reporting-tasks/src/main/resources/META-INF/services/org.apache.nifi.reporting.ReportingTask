@@ -1,0 +1,2 @@
+io.datadynamics.nifi.reporting.MonitorDiskUsageReportingTask
+io.datadynamics.nifi.reporting.MonitorMemoryReportingTask
