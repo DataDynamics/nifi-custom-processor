@@ -7,7 +7,7 @@
         <artifactId>nifi-custom-services</artifactId>
         <version>1.0.6</version>
     </parent>
-    <artifactId>nifi-standard-reporting-tasks</artifactId>
+    <artifactId>nifi-custom-reporting-tasks</artifactId>
     <packaging>jar</packaging>
     <dependencies>
         <dependency>

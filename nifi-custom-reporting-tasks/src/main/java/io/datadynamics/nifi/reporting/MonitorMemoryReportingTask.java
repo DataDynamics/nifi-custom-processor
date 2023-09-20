@@ -29,6 +29,30 @@ import java.util.regex.Pattern;
 @CapabilityDescription("특정 JVM 메모리 풀에 대해 JVM에서 사용 가능한 Java 힙의 양을 확인합니다. 사용된 공간의 양이 구성 가능한 일부 임계값을 초과하는 경우 로그 메시지 및 시스템 수준 게시판을 통해 메모리 풀이 이 임계값을 초과한다고 경고합니다.")
 public class MonitorMemoryReportingTask extends AbstractReportingTask {
 
+    public static final Pattern PERCENTAGE_PATTERN = Pattern.compile("\\d{1,2}%");
+    public static final Pattern DATA_SIZE_PATTERN = DataUnit.DATA_SIZE_PATTERN;
+    public static final Pattern TIME_PERIOD_PATTERN = FormatUtils.TIME_DURATION_PATTERN;
+    private static final List<String> GC_OLD_GEN_POOLS = Collections.unmodifiableList(Arrays.asList("Tenured Gen", "PS Old Gen", "G1 Old Gen", "CMS Old Gen", "ZHeap"));
+    private static final AllowableValue[] memPoolAllowableValues;
+    private final static List<PropertyDescriptor> propertyDescriptors;
+    public static ObjectMapper mapper = new ObjectMapper();
+    private static String defaultMemoryPool;
+
+    static {
+        // Only allow memory pool beans that support usage thresholds, otherwise we wouldn't report anything anyway
+        memPoolAllowableValues = ManagementFactory.getMemoryPoolMXBeans()
+                .stream()
+                .filter(MemoryPoolMXBean::isCollectionUsageThresholdSupported)
+                .map(MemoryPoolMXBean::getName)
+                .map(AllowableValue::new)
+                .toArray(AllowableValue[]::new);
+        defaultMemoryPool = Arrays.stream(memPoolAllowableValues)
+                .map(AllowableValue::getValue)
+                .filter(GC_OLD_GEN_POOLS::contains)
+                .findFirst()
+                .orElse(null);
+    }
+
     public static final PropertyDescriptor THRESHOLD_PROPERTY = new PropertyDescriptor.Builder()
             .name("메모리 사용율")
             .displayName("메모리 사용율")
@@ -75,14 +99,6 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue("10s")
             .build();
-    public static final Pattern PERCENTAGE_PATTERN = Pattern.compile("\\d{1,2}%");
-    public static final Pattern DATA_SIZE_PATTERN = DataUnit.DATA_SIZE_PATTERN;
-    public static final Pattern TIME_PERIOD_PATTERN = FormatUtils.TIME_DURATION_PATTERN;
-    private static final List<String> GC_OLD_GEN_POOLS = Collections.unmodifiableList(Arrays.asList("Tenured Gen", "PS Old Gen", "G1 Old Gen", "CMS Old Gen", "ZHeap"));
-    private static final AllowableValue[] memPoolAllowableValues;
-    private final static List<PropertyDescriptor> propertyDescriptors;
-    public static ObjectMapper mapper = new ObjectMapper();
-    private static String defaultMemoryPool;
     public static final PropertyDescriptor MEMORY_POOL_PROPERTY = new PropertyDescriptor.Builder()
             .name("Memory Pool")
             .displayName("Memory Pool")
@@ -91,21 +107,6 @@ public class MonitorMemoryReportingTask extends AbstractReportingTask {
             .allowableValues(memPoolAllowableValues)
             .defaultValue(defaultMemoryPool)
             .build();
-
-    static {
-        // Only allow memory pool beans that support usage thresholds, otherwise we wouldn't report anything anyway
-        memPoolAllowableValues = ManagementFactory.getMemoryPoolMXBeans()
-                .stream()
-                .filter(MemoryPoolMXBean::isCollectionUsageThresholdSupported)
-                .map(MemoryPoolMXBean::getName)
-                .map(AllowableValue::new)
-                .toArray(AllowableValue[]::new);
-        defaultMemoryPool = Arrays.stream(memPoolAllowableValues)
-                .map(AllowableValue::getValue)
-                .filter(GC_OLD_GEN_POOLS::contains)
-                .findFirst()
-                .orElse(null);
-    }
 
     static {
         List<PropertyDescriptor> _propertyDescriptors = new ArrayList<>();

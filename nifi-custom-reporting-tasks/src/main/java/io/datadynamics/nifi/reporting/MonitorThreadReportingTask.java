@@ -91,8 +91,28 @@ public class MonitorThreadReportingTask extends AbstractReportingTask {
         return propertyDescriptors;
     }
 
+    private volatile long lastReportTime;
+    private volatile long reportingIntervalMillis;
+    private volatile boolean lastValueWasExceeded;
+
     @OnScheduled
     public void onConfigured(final ConfigurationContext context) throws InitializationException {
+
+        /////////////////////////////////////////
+        // Reporting Interval
+        /////////////////////////////////////////
+
+        final Long reportingIntervalValue = context.getProperty(REPORTING_INTERVAL).asTimePeriod(TimeUnit.MILLISECONDS);
+        if (reportingIntervalValue == null) {
+            reportingIntervalMillis = context.getSchedulingPeriod(TimeUnit.MILLISECONDS);
+        } else {
+            reportingIntervalMillis = reportingIntervalValue;
+        }
+
+        /////////////////////////////////////////
+        // External HTTP Service
+        /////////////////////////////////////////
+
         httpClientReference.set(null);
 
         final OkHttpClient.Builder okHttpClientBuilder = new OkHttpClient.Builder();
@@ -116,6 +136,16 @@ public class MonitorThreadReportingTask extends AbstractReportingTask {
         final Integer thresholdValue = context.getProperty(THRESHOLD_PROPERTY).asInteger();
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
         if (threadMXBean.getThreadCount() > thresholdValue) {
+
+            // Reporting Interval을 확인
+            if (System.currentTimeMillis() < reportingIntervalMillis + lastReportTime && lastReportTime > 0L) {
+                return;
+            }
+
+            // Reporting Interval을 위한 check point
+            lastReportTime = System.currentTimeMillis();
+            lastValueWasExceeded = true;
+
             /////////////////////////////////////////
             // External HTTP Service
             /////////////////////////////////////////
@@ -156,6 +186,10 @@ public class MonitorThreadReportingTask extends AbstractReportingTask {
                     getLogger().warn("{}", String.format("External HTTP Service 호출에 실패했습니다. URL : %s", externalHttpUrl), e);
                 }
             }
+        } else if (lastValueWasExceeded) {
+            // Reporting Interval을 위한 초기화
+            lastValueWasExceeded = false;
+            lastReportTime = System.currentTimeMillis();
         }
     }
 }
