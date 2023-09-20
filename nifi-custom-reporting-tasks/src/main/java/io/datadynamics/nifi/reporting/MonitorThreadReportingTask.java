@@ -165,6 +165,8 @@ public class MonitorThreadReportingTask extends AbstractReportingTask {
                     params.put("currentThreadCpuTime", threadMXBean.getCurrentThreadCpuTime());
                     params.put("currentThreadUserTime", threadMXBean.getCurrentThreadUserTime());
 
+                    getLogger().info("Thread Reporting Task : {}", params);
+
                     String json = mapper.writeValueAsString(params);
                     final RequestBody requestBody = RequestBody.create(json, MediaType.parse("application/json"));
 

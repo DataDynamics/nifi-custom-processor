@@ -238,6 +238,8 @@ public class MonitorMemoryPoolReportingTask extends AbstractReportingTask {
                     params.put("init", usage.getInit());
                     params.put("commited", usage.getCommitted());
 
+                    getLogger().info("JVM Heap Memory Pool Reporting Task : {}", params);
+
                     String json = mapper.writeValueAsString(params);
                     final RequestBody requestBody = RequestBody.create(json, MediaType.parse("application/json"));
 

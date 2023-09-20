@@ -182,6 +182,8 @@ public class MonitorMemoryUsageReportingTask extends AbstractReportingTask {
                     params.put("init", memoryMXBean.getHeapMemoryUsage().getInit());
                     params.put("committed", memoryMXBean.getHeapMemoryUsage().getCommitted());
 
+                    getLogger().info("JVM Heap Memory Reporting Task : {}", params);
+
                     String json = mapper.writeValueAsString(params);
                     final RequestBody requestBody = RequestBody.create(json, MediaType.parse("application/json"));
 

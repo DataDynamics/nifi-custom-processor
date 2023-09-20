@@ -169,6 +169,8 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
                     params.put("freeSpace", freeSpace);
                     params.put("freePercent", freePercent);
 
+                    getLogger().info("Disk Usage Reporting Task : {}", params);
+
                     String json = mapper.writeValueAsString(params);
                     final RequestBody requestBody = RequestBody.create(json, MediaType.parse("application/json"));
 
