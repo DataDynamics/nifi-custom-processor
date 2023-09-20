@@ -1,3 +1,4 @@
 io.datadynamics.nifi.reporting.MonitorDiskUsageReportingTask
-io.datadynamics.nifi.reporting.MonitorMemoryReportingTask
+io.datadynamics.nifi.reporting.MonitorMemoryPoolReportingTask
 io.datadynamics.nifi.reporting.MonitorThreadReportingTask
+io.datadynamics.nifi.reporting.MonitorMemoryUsageReportingTask

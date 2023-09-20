@@ -14,6 +14,8 @@ import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.reporting.ReportingContext;
 
 import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryPoolMXBean;
+import java.lang.management.MemoryUsage;
 import java.lang.management.ThreadMXBean;
 import java.net.InetAddress;
 import java.util.*;
