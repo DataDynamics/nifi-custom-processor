@@ -7,7 +7,7 @@
         <echo message="Deleting All NARs From ${NIFI_EXT_DIR}"/>
 
         <delete>
-            <fileset dir="${NIFI_EXT_DIR}" includes="*"/>
+            <fileset dir="${NIFI_EXT_DIR}" includes="*.nar"/>
         </delete>
     </target>
 
