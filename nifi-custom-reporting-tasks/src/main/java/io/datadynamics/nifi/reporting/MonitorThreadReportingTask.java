@@ -157,7 +157,8 @@ public class MonitorThreadReportingTask extends AbstractReportingTask {
             Map params = new HashMap();
             params.put("hostname", getHostname());
             params.put("type", "JVMTheadUsage");
-            params.put("threadCount", threadMXBean.getThreadCount());
+            params.put("threshold", thresholdValue);
+            params.put("currentThreadCount", threadMXBean.getThreadCount());
             params.put("totalStartedThreadCount", threadMXBean.getTotalStartedThreadCount());
             params.put("peakThreadCount", threadMXBean.getPeakThreadCount());
             params.put("daemonThreadCount", threadMXBean.getDaemonThreadCount());

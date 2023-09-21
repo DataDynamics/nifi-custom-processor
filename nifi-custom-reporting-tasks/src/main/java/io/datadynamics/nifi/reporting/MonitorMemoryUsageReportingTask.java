@@ -177,6 +177,8 @@ public class MonitorMemoryUsageReportingTask extends AbstractReportingTask {
             Map params = new HashMap();
             params.put("hostname", getHostname());
             params.put("type", "JVMHeapUsage");
+            params.put("threshold", thresholdValue);
+            params.put("calculatedThreshold", calculatedThreshold);
             params.put("max", memoryMXBean.getHeapMemoryUsage().getMax());
             params.put("used", memoryMXBean.getHeapMemoryUsage().getUsed());
             params.put("init", memoryMXBean.getHeapMemoryUsage().getInit());
