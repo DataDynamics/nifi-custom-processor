@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="nar-deploy">
 
-    <property name="NIFI_EXT_DIR">/Users/fharenheit/projects/nifi/nifi-1.23.2/extensions</property>
+    <property name="NIFI_EXT_DIR">${user.home}/projects/nifi/nifi-1.23.2/extensions</property>
 
-    <target name="DELETE-ALL-LOCAL-NARS">
+    <target name="DELETE-ALL-FILES-FROM-EXT-DIR">
         <echo message="Deleting All NARs From ${NIFI_EXT_DIR}"/>
 
-        <delete>
-            <fileset dir="${NIFI_EXT_DIR}" includes="*.nar"/>
+        <delete includeemptydirs="true">
+            <fileset dir="${NIFI_EXT_DIR}" includes="**/*"/>
         </delete>
     </target>
 
     <target name="CP-REPORTING-TASKS">
         <echo message="Copying NAR to NiFi Extensions"/>
+
         <copy todir="${NIFI_EXT_DIR}">
             <fileset dir="nifi-custom-reporting-nar/target">
-                <exclude name="*.nar"/>
+                <include name="*.nar"/>
             </fileset>
         </copy>
     </target>
