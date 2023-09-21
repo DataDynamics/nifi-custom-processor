@@ -231,6 +231,7 @@ public class MonitorMemoryPoolReportingTask extends AbstractReportingTask {
             Map params = new HashMap();
             params.put("hostname", getHostname());
             params.put("type", "JVMHeapPoolUsage");
+            params.put("threshold", threshold);
             params.put("percentageUsed", percentageUsed);
             params.put("memoryPoolName", monitoredBean.getName());
             params.put("used", usage.getUsed());
