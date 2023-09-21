@@ -66,7 +66,7 @@ public class MonitorMemoryPoolReportingTask extends AbstractReportingTask {
     public static final PropertyDescriptor REPORTING_INTERVAL = new PropertyDescriptor.Builder()
             .name("리포팅 간격")
             .displayName("리포팅 간격")
-            .description("설정한 메모리 사용율 임계값을 초과하는 경우 Bulletin에 레포팅하는 간격을 설정합니다.")
+            .description("설정한 Memory Pool의 사용율 임계값을 초과하는 경우 Bulletin에 레포팅하는 간격을 설정합니다. (예; 2000 nanos, 2000 millis, 20 secs, 5 mins, 1 hrs, 1 days)")
             .required(false)
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue(null)
