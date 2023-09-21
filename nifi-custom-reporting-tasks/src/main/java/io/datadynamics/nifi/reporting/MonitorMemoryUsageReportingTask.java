@@ -13,6 +13,7 @@ import org.apache.nifi.components.Validator;
 import org.apache.nifi.controller.ConfigurationContext;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.DataUnit;
+import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.AbstractReportingTask;
 import org.apache.nifi.reporting.InitializationException;
@@ -23,6 +24,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -169,21 +171,25 @@ public class MonitorMemoryUsageReportingTask extends AbstractReportingTask {
             lastValueWasExceeded = true;
 
             /////////////////////////////////////////
+            // Get Memory Usage
+            /////////////////////////////////////////
+
+            Map params = new HashMap();
+            params.put("hostname", getHostname());
+            params.put("type", "JVMHeapUsage");
+            params.put("max", memoryMXBean.getHeapMemoryUsage().getMax());
+            params.put("used", memoryMXBean.getHeapMemoryUsage().getUsed());
+            params.put("init", memoryMXBean.getHeapMemoryUsage().getInit());
+            params.put("committed", memoryMXBean.getHeapMemoryUsage().getCommitted());
+
+            getLogger().info("JVM Heap Memory Reporting Task : {}", params);
+
+            /////////////////////////////////////////
             // External HTTP Service
             /////////////////////////////////////////
 
             if (isExternalHttpUrlEnable) {
                 try {
-                    Map params = new HashMap();
-                    params.put("hostname", InetAddress.getLocalHost().getHostName());
-                    params.put("type", "JVMHeapUsage");
-                    params.put("max", memoryMXBean.getHeapMemoryUsage().getMax());
-                    params.put("used", memoryMXBean.getHeapMemoryUsage().getUsed());
-                    params.put("init", memoryMXBean.getHeapMemoryUsage().getInit());
-                    params.put("committed", memoryMXBean.getHeapMemoryUsage().getCommitted());
-
-                    getLogger().info("JVM Heap Memory Reporting Task : {}", params);
-
                     String json = mapper.writeValueAsString(params);
                     final RequestBody requestBody = RequestBody.create(json, MediaType.parse("application/json"));
 
@@ -227,6 +233,14 @@ public class MonitorMemoryUsageReportingTask extends AbstractReportingTask {
             }
 
             return new ValidationResult.Builder().input(input).subject(subject).valid(true).build();
+        }
+    }
+
+    private String getHostname() throws ProcessException {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException("서버의 호스트명을 확인할 수 없습니다.", e);
         }
     }
 }

@@ -9,6 +9,7 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.ProcessContext;
+import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.AbstractReportingTask;
 import org.apache.nifi.reporting.ReportingContext;
@@ -17,6 +18,7 @@ import org.apache.nifi.util.FormatUtils;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -153,24 +155,28 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
             logger.warn(message);
 
             /////////////////////////////////////////
+            // Get Disk Usage
+            /////////////////////////////////////////
+
+            Map params = new HashMap();
+            params.put("hostname", getHostname());
+            params.put("type", "DiskUsage");
+            params.put("pathName", pathName);
+            params.put("threshold", threshold);
+            params.put("usedSpace", usedSpace);
+            params.put("totalSpace", totalSpace);
+            params.put("usedPercent", usedPercent);
+            params.put("freeSpace", freeSpace);
+            params.put("freePercent", freePercent);
+
+            getLogger().info("Disk Usage Reporting Task : {}", params);
+
+            /////////////////////////////////////////
             // External HTTP Service
             /////////////////////////////////////////
 
             if (isExternalHttpUrlEnable) {
                 try {
-                    Map params = new HashMap();
-                    params.put("hostname", InetAddress.getLocalHost().getHostName());
-                    params.put("type", "DiskUsage");
-                    params.put("pathName", pathName);
-                    params.put("threshold", threshold);
-                    params.put("usedSpace", usedSpace);
-                    params.put("totalSpace", totalSpace);
-                    params.put("usedPercent", usedPercent);
-                    params.put("freeSpace", freeSpace);
-                    params.put("freePercent", freePercent);
-
-                    getLogger().info("Disk Usage Reporting Task : {}", params);
-
                     String json = mapper.writeValueAsString(params);
                     final RequestBody requestBody = RequestBody.create(json, MediaType.parse("application/json"));
 
@@ -194,6 +200,14 @@ public class MonitorDiskUsageReportingTask extends AbstractReportingTask {
                     logger.warn("{}", String.format("External HTTP Service 호출에 실패했습니다. URL : %s", externalHttpUrl), e);
                 }
             }
+        }
+    }
+
+    private String getHostname() throws ProcessException {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException("서버의 호스트명을 확인할 수 없습니다.", e);
         }
     }
 }

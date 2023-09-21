@@ -8,6 +8,7 @@ import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.controller.ConfigurationContext;
 import org.apache.nifi.expression.ExpressionLanguageScope;
+import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.AbstractReportingTask;
 import org.apache.nifi.reporting.InitializationException;
@@ -18,6 +19,7 @@ import java.lang.management.MemoryPoolMXBean;
 import java.lang.management.MemoryUsage;
 import java.lang.management.ThreadMXBean;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,7 +39,7 @@ public class MonitorThreadReportingTask extends AbstractReportingTask {
     public static final PropertyDescriptor REPORTING_INTERVAL = new PropertyDescriptor.Builder()
             .name("리포팅 간격")
             .displayName("리포팅 간격")
-            .description("설정한 메모리 사용율 임계값을 초과하는 경우 Bulletin에 레포팅하는 간격을 설정합니다.")
+            .description("설정한 쓰레드 최대 개수의 임계값을 초과하는 경우 Bulletin에 레포팅하는 간격을 설정합니다. (예; 2000 nanos, 2000 millis, 20 secs, 5 mins, 1 hrs, 1 days)")
             .required(false)
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue(null)
@@ -149,24 +151,28 @@ public class MonitorThreadReportingTask extends AbstractReportingTask {
             lastValueWasExceeded = true;
 
             /////////////////////////////////////////
+            // Get Thread Count
+            /////////////////////////////////////////
+
+            Map params = new HashMap();
+            params.put("hostname", getHostname());
+            params.put("type", "JVMTheadUsage");
+            params.put("threadCount", threadMXBean.getThreadCount());
+            params.put("totalStartedThreadCount", threadMXBean.getTotalStartedThreadCount());
+            params.put("peakThreadCount", threadMXBean.getPeakThreadCount());
+            params.put("daemonThreadCount", threadMXBean.getDaemonThreadCount());
+            params.put("allThreadIdsCount", threadMXBean.getAllThreadIds().length);
+            params.put("currentThreadCpuTime", threadMXBean.getCurrentThreadCpuTime());
+            params.put("currentThreadUserTime", threadMXBean.getCurrentThreadUserTime());
+
+            getLogger().info("Thread Reporting Task : {}", params);
+
+            /////////////////////////////////////////
             // External HTTP Service
             /////////////////////////////////////////
 
             if (isExternalHttpUrlEnable) {
                 try {
-                    Map params = new HashMap();
-                    params.put("hostname", InetAddress.getLocalHost().getHostName());
-                    params.put("type", "JVMTheadUsage");
-                    params.put("threadCount", threadMXBean.getThreadCount());
-                    params.put("totalStartedThreadCount", threadMXBean.getTotalStartedThreadCount());
-                    params.put("peakThreadCount", threadMXBean.getPeakThreadCount());
-                    params.put("daemonThreadCount", threadMXBean.getDaemonThreadCount());
-                    params.put("allThreadIdsCount", threadMXBean.getAllThreadIds().length);
-                    params.put("currentThreadCpuTime", threadMXBean.getCurrentThreadCpuTime());
-                    params.put("currentThreadUserTime", threadMXBean.getCurrentThreadUserTime());
-
-                    getLogger().info("Thread Reporting Task : {}", params);
-
                     String json = mapper.writeValueAsString(params);
                     final RequestBody requestBody = RequestBody.create(json, MediaType.parse("application/json"));
 
@@ -194,6 +200,14 @@ public class MonitorThreadReportingTask extends AbstractReportingTask {
             // Reporting Interval을 위한 초기화
             lastValueWasExceeded = false;
             lastReportTime = System.currentTimeMillis();
+        }
+    }
+
+    private String getHostname() throws ProcessException {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException("서버의 호스트명을 확인할 수 없습니다.", e);
         }
     }
 }
