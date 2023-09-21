@@ -1,12 +1,12 @@
-# NiFi Custom Processor
+# NiFi Custom Services
 
-이 프로젝트는 NiFi에서 사용할 수 있는 Custom Processor를 구현한 NAR 프로젝트입니다.
+이 프로젝트는 NiFi에서 사용할 수 있는 Custom Processor, Controller Service, Reporting Task 등을 구현한 NiFi 프로젝트입니다.
 
 ## Requirement
 
 * NiFi 1.18.0
 * Apache Maven 3.8.0 이상
-* JDK 1.8 이상
+* JDK 11 이상
 
 ## Build
 
@@ -14,11 +14,24 @@
 # mvn clean package
 ```
 
-## Deploy
+## NiFi 로그인 인증
+
+NiFi 최초 설치시 SSL을 위한 구성이 자동으로 진행되며 이 경우 단일 사용자를 위한 로그인을 다음의 커맨드를 이용하여 설정합니다.
 
 ```
-# cp nifi-custom-nar-1.0.3.nar <NIFI_HOME>/extentions
-# systemctl restart nifi
+# cd <NIFI_HOME>/bin
+# sh nifi.sh set-single-user-credentials admin adminadminadmin
+```
+
+## NAR 파일 배포
+
+빌드한 NAR 파일을 배포하려면 다음과 같이 NAR 파일을 복사합니다.
+소스코드를 수정하고 재배포하는 경우에도 동일하게 진행하면 변경내용을 확인하여 NiFi가 내부적으로 NAR를 재배포합니다.
+
+```
+# cp nifi-custom-reporting-tasks-1.0.6.nar <NIFI_HOME>/extentions
+# cd <NIFI_HOME>/bin
+# sh nifi.sh start
 ```
 
 ## Processor
@@ -161,9 +174,19 @@ INTO schema1.table1 ( TypeBoolean, TypeInt, TypeLong, TypeFloat, TypeDouble, Typ
 SELECT 1 FROM dual;
 ```
 
-## Apache Ant
+## Reporting Tasks
 
-### JSCH
+기존에 NiFi에 포함되어 있는 Reporting Task의 경우 로그 메시지 출력을 통해 NiFi UI의 Bulletin에 표시되도록 할 수는 있습니다.
+하지만 장애가 발생할 수 있는 중요한 정보는 알람이 필요한 경우가 많으므로 다음의 Reporting Task의 경우 외부 HTTP URI에 임계치를 초과하는 경우 알람을 발송할 수 있습니다.
+
+* MonitorDiskUsageReportingTask - Disk Usage의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
+* MonitorMemoryPoolReportingTask - JVM Memory Pool의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
+* MonitorMemoryUsageReportingTask - JVM Memory Usageㅇ의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
+* MonitorThreadReportingTask - JVM Thread의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
+
+## 기타
+
+### Apache Ant
 
 `build.xml` 파일에서 SCP를 수행하기 위해서 IntelliJ IDEA에서 실행하는 경우 다음과 같이 JSCH가 필요합니다.
 
