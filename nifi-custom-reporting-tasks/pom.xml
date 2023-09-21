@@ -9,27 +9,22 @@
     </parent>
 
     <artifactId>nifi-custom-reporting-tasks</artifactId>
-    <packaging>nar</packaging>
+    <packaging>jar</packaging>
 
     <properties>
         <maven.javadoc.skip>true</maven.javadoc.skip>
         <source.skip>true</source.skip>
     </properties>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.nifi</groupId>
-                <artifactId>nifi-nar-maven-plugin</artifactId>
-                <version>1.5.1</version>
-            </plugin>
-        </plugins>
-    </build>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.nifi</groupId>
             <artifactId>nifi-api</artifactId>
+            <version>1.23.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.nifi</groupId>
+            <artifactId>nifi-reporting-utils</artifactId>
             <version>1.23.2</version>
         </dependency>
         <dependency>
