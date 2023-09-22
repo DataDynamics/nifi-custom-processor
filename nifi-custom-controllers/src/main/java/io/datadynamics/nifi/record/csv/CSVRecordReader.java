@@ -3,6 +3,7 @@ package io.datadynamics.nifi.record.csv;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.serialization.MalformedRecordException;
+import org.apache.nifi.serialization.SchemaValidationException;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.*;
 import shaded.org.apache.commons.csv.CSVFormat;
@@ -39,7 +40,7 @@ public class CSVRecordReader extends AbstractCSVRecordReader {
             withHeader = csvFormat.withHeader(schema.getFieldNames().toArray(new String[0]));
         }
 
-        withHeader = csvFormat.withFieldCount(fieldCount).withValidateFieldCount(failOnMismatchFieldCount);
+        withHeader = withHeader.withFieldCount(fieldCount).withValidateFieldCount(failOnMismatchFieldCount);
 
         csvParser = new CSVParser(reader, withHeader);
     }
@@ -60,6 +61,10 @@ public class CSVRecordReader extends AbstractCSVRecordReader {
                 final Map<String, Object> values = new LinkedHashMap<>(recordFields.size() * 2);
                 for (int i = 0; i < csvRecord.size(); i++) {
                     final String rawValue = csvRecord.get(i);
+
+                    if (failOnMismatchFieldCount && fieldCount != csvRecord.size()) {
+                        throw new SchemaValidationException(String.format("CSV 파일의 컬럼 개수와 파싱한 컬럼 개수가 상이합니다. 원래 컬럼 개수 : %s, 파싱한 컬럼 개수 : %s", fieldCount, csvRecord.size()));
+                    }
 
                     final String rawFieldName;
                     final DataType dataType;
