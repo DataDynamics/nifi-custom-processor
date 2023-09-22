@@ -38,6 +38,13 @@ final class IOUtils {
     private static final int EOF = -1;
 
     /**
+     * No instances.
+     */
+    private IOUtils() {
+        // Noop
+    }
+
+    /**
      * Copies chars from a large (over 2GB) {@code Reader} to an {@code Appendable}.
      * <p>
      * This method buffers the input internally, so there is no need to use a
@@ -139,13 +146,6 @@ final class IOUtils {
     @SuppressWarnings("unchecked")
     static <T extends Throwable> RuntimeException rethrow(final Throwable throwable) throws T {
         throw (T) throwable;
-    }
-
-    /**
-     * No instances.
-     */
-    private IOUtils() {
-        // Noop
     }
 
 }

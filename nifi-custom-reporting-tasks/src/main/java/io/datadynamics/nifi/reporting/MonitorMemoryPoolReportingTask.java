@@ -34,27 +34,6 @@ public class MonitorMemoryPoolReportingTask extends AbstractReportingTask {
     public static final Pattern PERCENTAGE_PATTERN = Pattern.compile("\\d{1,2}%");
     public static final Pattern DATA_SIZE_PATTERN = DataUnit.DATA_SIZE_PATTERN;
     public static final Pattern TIME_PERIOD_PATTERN = FormatUtils.TIME_DURATION_PATTERN;
-    private static final List<String> GC_OLD_GEN_POOLS = Collections.unmodifiableList(Arrays.asList("Tenured Gen", "PS Old Gen", "G1 Old Gen", "CMS Old Gen", "ZHeap"));
-    private static final AllowableValue[] memPoolAllowableValues;
-    private final static List<PropertyDescriptor> propertyDescriptors;
-    public static ObjectMapper mapper = new ObjectMapper();
-    private static String defaultMemoryPool;
-
-    static {
-        // Only allow memory pool beans that support usage thresholds, otherwise we wouldn't report anything anyway
-        memPoolAllowableValues = ManagementFactory.getMemoryPoolMXBeans()
-                .stream()
-                .filter(MemoryPoolMXBean::isCollectionUsageThresholdSupported)
-                .map(MemoryPoolMXBean::getName)
-                .map(AllowableValue::new)
-                .toArray(AllowableValue[]::new);
-        defaultMemoryPool = Arrays.stream(memPoolAllowableValues)
-                .map(AllowableValue::getValue)
-                .filter(GC_OLD_GEN_POOLS::contains)
-                .findFirst()
-                .orElse(null);
-    }
-
     public static final PropertyDescriptor THRESHOLD_PROPERTY = new PropertyDescriptor.Builder()
             .name("메모리 사용율")
             .displayName("메모리 사용율")
@@ -101,6 +80,11 @@ public class MonitorMemoryPoolReportingTask extends AbstractReportingTask {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue("10s")
             .build();
+    private static final List<String> GC_OLD_GEN_POOLS = Collections.unmodifiableList(Arrays.asList("Tenured Gen", "PS Old Gen", "G1 Old Gen", "CMS Old Gen", "ZHeap"));
+    private static final AllowableValue[] memPoolAllowableValues;
+    private final static List<PropertyDescriptor> propertyDescriptors;
+    public static ObjectMapper mapper = new ObjectMapper();
+    private static String defaultMemoryPool;
     public static final PropertyDescriptor MEMORY_POOL_PROPERTY = new PropertyDescriptor.Builder()
             .name("Memory Pool")
             .displayName("Memory Pool")
@@ -109,6 +93,21 @@ public class MonitorMemoryPoolReportingTask extends AbstractReportingTask {
             .allowableValues(memPoolAllowableValues)
             .defaultValue(defaultMemoryPool)
             .build();
+
+    static {
+        // Only allow memory pool beans that support usage thresholds, otherwise we wouldn't report anything anyway
+        memPoolAllowableValues = ManagementFactory.getMemoryPoolMXBeans()
+                .stream()
+                .filter(MemoryPoolMXBean::isCollectionUsageThresholdSupported)
+                .map(MemoryPoolMXBean::getName)
+                .map(AllowableValue::new)
+                .toArray(AllowableValue[]::new);
+        defaultMemoryPool = Arrays.stream(memPoolAllowableValues)
+                .map(AllowableValue::getValue)
+                .filter(GC_OLD_GEN_POOLS::contains)
+                .findFirst()
+                .orElse(null);
+    }
 
     static {
         List<PropertyDescriptor> _propertyDescriptors = new ArrayList<>();
@@ -286,6 +285,14 @@ public class MonitorMemoryPoolReportingTask extends AbstractReportingTask {
         monitoredBean = null;
     }
 
+    private String getHostname() throws ProcessException {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException("서버의 호스트명을 확인할 수 없습니다.", e);
+        }
+    }
+
     private static class ThresholdValidator implements Validator {
         @Override
         public ValidationResult validate(final String subject, final String input, final ValidationContext context) {
@@ -296,14 +303,6 @@ public class MonitorMemoryPoolReportingTask extends AbstractReportingTask {
             }
 
             return new ValidationResult.Builder().input(input).subject(subject).valid(true).build();
-        }
-    }
-
-    private String getHostname() throws ProcessException {
-        try {
-            return InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            throw new RuntimeException("서버의 호스트명을 확인할 수 없습니다.", e);
         }
     }
 }

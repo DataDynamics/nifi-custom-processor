@@ -15,8 +15,6 @@ import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.reporting.ReportingContext;
 
 import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryPoolMXBean;
-import java.lang.management.MemoryUsage;
 import java.lang.management.ThreadMXBean;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -89,15 +87,14 @@ public class MonitorThreadReportingTask extends AbstractReportingTask {
     }
 
     private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
+    private volatile long lastReportTime;
+    private volatile long reportingIntervalMillis;
+    private volatile boolean lastValueWasExceeded;
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         return propertyDescriptors;
     }
-
-    private volatile long lastReportTime;
-    private volatile long reportingIntervalMillis;
-    private volatile boolean lastValueWasExceeded;
 
     @OnScheduled
     public void onConfigured(final ConfigurationContext context) throws InitializationException {

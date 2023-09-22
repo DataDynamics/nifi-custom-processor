@@ -36,18 +36,11 @@ import java.util.Map;
         + "for interpreting the values. See Controller Service's Usage for further documentation.")
 public class CSVReader extends SchemaRegistryService implements RecordReaderFactory {
 
-    private static final AllowableValue HEADER_DERIVED = new AllowableValue("csv-header-derived", "Use String Fields From Header",
-            "The first non-comment line of the CSV file is a header line that contains the names of the columns. The schema will be derived by using the "
-                    + "column names in the header and assuming that all columns are of type String.");
-
     // CSV parsers
     public static final AllowableValue APACHE_COMMONS_CSV = new AllowableValue("commons-csv", "Apache Commons CSV",
             "The CSV parser implementation from the Apache Commons CSV library.");
-
     public static final AllowableValue JACKSON_CSV = new AllowableValue("jackson-csv", "Jackson CSV",
             "The CSV parser implementation from the Jackson Dataformats library.");
-
-
     public static final PropertyDescriptor CSV_PARSER = new PropertyDescriptor.Builder()
             .name("csv-reader-csv-parser")
             .displayName("CSV Parser")
@@ -58,7 +51,6 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
             .defaultValue(APACHE_COMMONS_CSV.getValue())
             .required(true)
             .build();
-
     public static final PropertyDescriptor TRIM_DOUBLE_QUOTE = new PropertyDescriptor.Builder()
             .name("Trim double quote")
             .description("Whether or not to trim starting and ending double quotes. For example: with trim string '\"test\"'"
@@ -71,7 +63,6 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .required(true)
             .build();
-
     public static final PropertyDescriptor FIELD_COUNT = new PropertyDescriptor.Builder()
             .name("필드(컬럼) 개수")
             .description("유효성 검사를 위한 CSV 파일의 필드(컬럼) 개수")
@@ -79,7 +70,6 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
             .required(false)
             .build();
-
     public static final PropertyDescriptor FAIL_ON_MISMATCH_FIELD_COUNT = new PropertyDescriptor.Builder()
             .name("필드(컬럼) 개수 불일치시 실패처리")
             .description("CSV 파일의 필드(컬럼) 개수가 지정한 필드 개수와 불일치 하는 경우 CSV 파일 실패 처리")
@@ -90,7 +80,6 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .required(false)
             .build();
-
     public static final PropertyDescriptor USE_SCHEMA_FOR_FIELD_COUNT = new PropertyDescriptor.Builder()
             .name("필드(컬럼) 개수로 스키마를 활용")
             .description("별도로 필드(컬럼) 개수를 지정하지 않고 스키마로 필드 개수를 사용")
@@ -100,7 +89,9 @@ public class CSVReader extends SchemaRegistryService implements RecordReaderFact
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .required(false)
             .build();
-
+    private static final AllowableValue HEADER_DERIVED = new AllowableValue("csv-header-derived", "Use String Fields From Header",
+            "The first non-comment line of the CSV file is a header line that contains the names of the columns. The schema will be derived by using the "
+                    + "column names in the header and assuming that all columns are of type String.");
     private volatile ConfigurationContext context;
 
     private volatile String csvParser;

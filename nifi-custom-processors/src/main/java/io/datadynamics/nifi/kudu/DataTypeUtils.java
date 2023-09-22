@@ -17,8 +17,8 @@
 package io.datadynamics.nifi.kudu;
 
 import org.apache.nifi.serialization.SimpleRecordSchema;
-import org.apache.nifi.serialization.record.*;
 import org.apache.nifi.serialization.record.Record;
+import org.apache.nifi.serialization.record.*;
 import org.apache.nifi.serialization.record.type.*;
 import org.apache.nifi.serialization.record.util.DataTypeSet;
 import org.apache.nifi.serialization.record.util.IllegalTypeConversionException;
@@ -51,28 +51,15 @@ import java.util.regex.Pattern;
 
 public class DataTypeUtils {
     private static final Logger logger = LoggerFactory.getLogger(DataTypeUtils.class);
-
-    // FIXED
-    public static DateTimeFormatter DEFAULT_NANOSECONDS_FORMATTER = new DateTimeFormatterBuilder()
-            .appendPattern("yyyy-MM-dd HH:mm:ss")
-            .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
-            .toFormatter();
-
-    // FIXED
-    public static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-
     // Regexes for parsing Floating-Point numbers
     private static final String OptionalSign = "[\\-\\+]?";
     private static final String Infinity = "(Infinity)";
     private static final String NotANumber = "(NaN)";
-
     private static final String Base10Digits = "\\d+";
     private static final String Base10Decimal = "\\." + Base10Digits;
     private static final String OptionalBase10Decimal = "(\\.\\d*)?";
-
     private static final String Base10Exponent = "[eE]" + OptionalSign + Base10Digits;
     private static final String OptionalBase10Exponent = "(" + Base10Exponent + ")?";
-
     private static final String doubleRegex =
             OptionalSign +
                     "(" +
@@ -82,37 +69,36 @@ public class DataTypeUtils {
                     "(" + Base10Digits + OptionalBase10Decimal + Base10Exponent + ")" + "|" +
                     "(" + Base10Decimal + OptionalBase10Exponent + ")" +
                     ")";
-
+    private static final Pattern FLOATING_POINT_PATTERN = Pattern.compile(doubleRegex);
     private static final String decimalRegex =
             OptionalSign +
                     "(" + Base10Digits + OptionalBase10Decimal + ")" + "|" +
                     "(" + Base10Digits + OptionalBase10Decimal + Base10Exponent + ")" + "|" +
                     "(" + Base10Decimal + OptionalBase10Exponent + ")";
-
-    private static final Pattern FLOATING_POINT_PATTERN = Pattern.compile(doubleRegex);
     private static final Pattern DECIMAL_PATTERN = Pattern.compile(decimalRegex);
-
     private static final Supplier<DateFormat> DEFAULT_DATE_FORMAT = () -> getDateFormat(RecordFieldType.DATE.getDefaultFormat());
     private static final Supplier<DateFormat> DEFAULT_TIME_FORMAT = () -> getDateFormat(RecordFieldType.TIME.getDefaultFormat());
     private static final Supplier<DateFormat> DEFAULT_TIMESTAMP_FORMAT = () -> getDateFormat(RecordFieldType.TIMESTAMP.getDefaultFormat());
-
     private static final int FLOAT_SIGNIFICAND_PRECISION = 24; // As specified in IEEE 754 binary32
     private static final int DOUBLE_SIGNIFICAND_PRECISION = 53; // As specified in IEEE 754 binary64
-
     private static final Long MAX_GUARANTEED_PRECISE_WHOLE_IN_FLOAT = Double.valueOf(Math.pow(2, FLOAT_SIGNIFICAND_PRECISION)).longValue();
     private static final Long MIN_GUARANTEED_PRECISE_WHOLE_IN_FLOAT = -MAX_GUARANTEED_PRECISE_WHOLE_IN_FLOAT;
+    private static final BigInteger MIN_FLOAT_VALUE_IN_BIGINT = BigInteger.valueOf(MIN_GUARANTEED_PRECISE_WHOLE_IN_FLOAT);
+    private static final BigInteger MAX_FLOAT_VALUE_IN_BIGINT = BigInteger.valueOf(MAX_GUARANTEED_PRECISE_WHOLE_IN_FLOAT);
     private static final Long MAX_GUARANTEED_PRECISE_WHOLE_IN_DOUBLE = Double.valueOf(Math.pow(2, DOUBLE_SIGNIFICAND_PRECISION)).longValue();
     private static final Long MIN_GUARANTEED_PRECISE_WHOLE_IN_DOUBLE = -MAX_GUARANTEED_PRECISE_WHOLE_IN_DOUBLE;
-
-    private static final BigInteger MAX_FLOAT_VALUE_IN_BIGINT = BigInteger.valueOf(MAX_GUARANTEED_PRECISE_WHOLE_IN_FLOAT);
-    private static final BigInteger MIN_FLOAT_VALUE_IN_BIGINT = BigInteger.valueOf(MIN_GUARANTEED_PRECISE_WHOLE_IN_FLOAT);
-    private static final BigInteger MAX_DOUBLE_VALUE_IN_BIGINT = BigInteger.valueOf(MAX_GUARANTEED_PRECISE_WHOLE_IN_DOUBLE);
     private static final BigInteger MIN_DOUBLE_VALUE_IN_BIGINT = BigInteger.valueOf(MIN_GUARANTEED_PRECISE_WHOLE_IN_DOUBLE);
-
+    private static final BigInteger MAX_DOUBLE_VALUE_IN_BIGINT = BigInteger.valueOf(MAX_GUARANTEED_PRECISE_WHOLE_IN_DOUBLE);
     private static final double MAX_FLOAT_VALUE_IN_DOUBLE = Float.valueOf(Float.MAX_VALUE).doubleValue();
     private static final double MIN_FLOAT_VALUE_IN_DOUBLE = -MAX_FLOAT_VALUE_IN_DOUBLE;
-
     private static final Map<RecordFieldType, Predicate<Object>> NUMERIC_VALIDATORS = new EnumMap<>(RecordFieldType.class);
+    // FIXED
+    public static DateTimeFormatter DEFAULT_NANOSECONDS_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("yyyy-MM-dd HH:mm:ss")
+            .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
+            .toFormatter();
+    // FIXED
+    public static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
     static {
         NUMERIC_VALIDATORS.put(RecordFieldType.BIGINT, value -> value instanceof BigInteger);

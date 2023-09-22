@@ -32,10 +32,10 @@ import java.util.function.BiFunction;
  */
 public class RollbackOnFailure {
 
+    public static final PropertyDescriptor ROLLBACK_ON_FAILURE = createRollbackOnFailureProperty("");
     private final boolean rollbackOnFailure;
     private final boolean transactional;
     private boolean discontinue;
-
     private int processedCount = 0;
 
     /**
@@ -50,8 +50,6 @@ public class RollbackOnFailure {
         this.rollbackOnFailure = rollbackOnFailure;
         this.transactional = transactional;
     }
-
-    public static final PropertyDescriptor ROLLBACK_ON_FAILURE = createRollbackOnFailureProperty("");
 
     public static PropertyDescriptor createRollbackOnFailureProperty(String additionalDescription) {
         return new PropertyDescriptor.Builder()

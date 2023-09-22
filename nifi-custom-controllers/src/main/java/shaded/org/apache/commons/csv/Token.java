@@ -26,6 +26,41 @@ import static shaded.org.apache.commons.csv.Token.Type.INVALID;
  */
 final class Token {
 
+    /**
+     * length of the initial token (content-)buffer
+     */
+    private static final int INITIAL_TOKEN_LENGTH = 50;
+    /**
+     * The content buffer.
+     */
+    final StringBuilder content = new StringBuilder(INITIAL_TOKEN_LENGTH);
+    /**
+     * Token type
+     */
+    Type type = INVALID;
+    /**
+     * Token ready flag: indicates a valid token with content (ready for the parser).
+     */
+    boolean isReady;
+    boolean isQuoted;
+
+    void reset() {
+        content.setLength(0);
+        type = INVALID;
+        isReady = false;
+        isQuoted = false;
+    }
+
+    /**
+     * Eases IDE debugging.
+     *
+     * @return a string helpful for debugging.
+     */
+    @Override
+    public String toString() {
+        return type.name() + " [" + content.toString() + "]";
+    }
+
     enum Type {
         /**
          * Token has no valid content, i.e. is in its initialized state.
@@ -51,44 +86,5 @@ final class Token {
          * Token is a comment line.
          */
         COMMENT
-    }
-
-    /**
-     * length of the initial token (content-)buffer
-     */
-    private static final int INITIAL_TOKEN_LENGTH = 50;
-
-    /**
-     * Token type
-     */
-    Type type = INVALID;
-
-    /**
-     * The content buffer.
-     */
-    final StringBuilder content = new StringBuilder(INITIAL_TOKEN_LENGTH);
-
-    /**
-     * Token ready flag: indicates a valid token with content (ready for the parser).
-     */
-    boolean isReady;
-
-    boolean isQuoted;
-
-    void reset() {
-        content.setLength(0);
-        type = INVALID;
-        isReady = false;
-        isQuoted = false;
-    }
-
-    /**
-     * Eases IDE debugging.
-     *
-     * @return a string helpful for debugging.
-     */
-    @Override
-    public String toString() {
-        return type.name() + " [" + content.toString() + "]";
     }
 }

@@ -26,116 +26,18 @@ import java.util.function.Function;
  */
 public class ExceptionHandler<C> {
 
-    @FunctionalInterface
-    public interface Procedure<I> {
-        void apply(I input) throws Exception;
-    }
-
-    public interface OnError<C, I> {
-        void apply(C context, I input, Result result, Exception e);
-
-        default OnError<C, I> andThen(OnError<C, I> after) {
-            return (c, i, r, e) -> {
-                apply(c, i, r, e);
-                after.apply(c, i, r, e);
-            };
-        }
-    }
-
     /**
      * Simply categorise an Exception.
      */
     private Function<Exception, ErrorTypes> mapException;
-
     /**
      * Adjust error type based on the context.
      */
     private BiFunction<C, ErrorTypes, Result> adjustError;
-
     /**
      * Do some action to the input based on the final error type.
      */
     private OnError<C, ?> onError;
-
-    /**
-     * Specify a function that maps an Exception to certain ErrorType.
-     */
-    public void mapException(Function<Exception, ErrorTypes> mapException) {
-        this.mapException = mapException;
-    }
-
-    /**
-     * <p>Specify a function that adjust ErrorType based on a function context.
-     * <p>For example, {@link RollbackOnFailure#createAdjustError(ComponentLog)} decides
-     * whether a process session should rollback or transfer input to failure or retry.
-     */
-    public void adjustError(BiFunction<C, ErrorTypes, Result> adjustError) {
-        this.adjustError = adjustError;
-    }
-
-    /**
-     * <p>Specify a default OnError function that will be called if one is not explicitly specified when {@link #execute(Object, Object, Procedure)} is called.
-     */
-    public void onError(OnError<C, ?> onError) {
-        this.onError = onError;
-    }
-
-    /**
-     * <p>Executes specified procedure function with the input.
-     * <p>Default OnError function will be called when an exception is thrown.
-     *
-     * @param context   function context
-     * @param input     input for procedure
-     * @param procedure a function that does something with the input
-     * @return True if the procedure finished without issue. False if procedure threw an Exception but it was handled by {@link OnError}.
-     * @throws ProcessException      Thrown if the exception was not handled by {@link OnError}
-     * @throws DiscontinuedException Indicating the exception was handled by {@link OnError} but process should stop immediately
-     *                               without processing any further input
-     */
-    @SuppressWarnings("unchecked")
-    public <I> boolean execute(C context, I input, Procedure<I> procedure) throws ProcessException, DiscontinuedException {
-        return execute(context, input, procedure, (OnError<C, I>) onError);
-    }
-
-    /**
-     * <p>Executes specified procedure function with the input.
-     *
-     * @param context   function context
-     * @param input     input for procedure
-     * @param procedure a function that does something with the input
-     * @param onError   specify {@link OnError} function for this execution
-     * @return True if the procedure finished without issue. False if procedure threw an Exception but it was handled by {@link OnError}.
-     * @throws ProcessException      Thrown if the exception was not handled by {@link OnError}
-     * @throws DiscontinuedException Indicating the exception was handled by {@link OnError} but process should stop immediately
-     *                               without processing any further input
-     */
-    public <I> boolean execute(C context, I input, Procedure<I> procedure, OnError<C, I> onError) throws ProcessException, DiscontinuedException {
-        try {
-            procedure.apply(input);
-            return true;
-        } catch (Exception e) {
-
-            if (mapException == null) {
-                throw new ProcessException("An exception was thrown: " + e, e);
-            }
-
-            final ErrorTypes type = mapException.apply(e);
-
-            final Result result;
-            if (adjustError != null) {
-                result = adjustError.apply(context, type);
-            } else {
-                result = new Result(type.destination(), type.penalty());
-            }
-
-            if (onError == null) {
-                throw new IllegalStateException("OnError is not set.");
-            }
-
-            onError.apply(context, input, result, e);
-        }
-        return false;
-    }
 
     private static FlowFile penalize(final ProcessContext context, final ProcessSession session,
                                      final FlowFile flowFile, final ErrorTypes.Penalty penalty) {
@@ -220,5 +122,101 @@ public class ExceptionHandler<C> {
                 routingResult.routeTo(maybePenalized, routeTo);
             }
         };
+    }
+
+    /**
+     * Specify a function that maps an Exception to certain ErrorType.
+     */
+    public void mapException(Function<Exception, ErrorTypes> mapException) {
+        this.mapException = mapException;
+    }
+
+    /**
+     * <p>Specify a function that adjust ErrorType based on a function context.
+     * <p>For example, {@link RollbackOnFailure#createAdjustError(ComponentLog)} decides
+     * whether a process session should rollback or transfer input to failure or retry.
+     */
+    public void adjustError(BiFunction<C, ErrorTypes, Result> adjustError) {
+        this.adjustError = adjustError;
+    }
+
+    /**
+     * <p>Specify a default OnError function that will be called if one is not explicitly specified when {@link #execute(Object, Object, Procedure)} is called.
+     */
+    public void onError(OnError<C, ?> onError) {
+        this.onError = onError;
+    }
+
+    /**
+     * <p>Executes specified procedure function with the input.
+     * <p>Default OnError function will be called when an exception is thrown.
+     *
+     * @param context   function context
+     * @param input     input for procedure
+     * @param procedure a function that does something with the input
+     * @return True if the procedure finished without issue. False if procedure threw an Exception but it was handled by {@link OnError}.
+     * @throws ProcessException      Thrown if the exception was not handled by {@link OnError}
+     * @throws DiscontinuedException Indicating the exception was handled by {@link OnError} but process should stop immediately
+     *                               without processing any further input
+     */
+    @SuppressWarnings("unchecked")
+    public <I> boolean execute(C context, I input, Procedure<I> procedure) throws ProcessException, DiscontinuedException {
+        return execute(context, input, procedure, (OnError<C, I>) onError);
+    }
+
+    /**
+     * <p>Executes specified procedure function with the input.
+     *
+     * @param context   function context
+     * @param input     input for procedure
+     * @param procedure a function that does something with the input
+     * @param onError   specify {@link OnError} function for this execution
+     * @return True if the procedure finished without issue. False if procedure threw an Exception but it was handled by {@link OnError}.
+     * @throws ProcessException      Thrown if the exception was not handled by {@link OnError}
+     * @throws DiscontinuedException Indicating the exception was handled by {@link OnError} but process should stop immediately
+     *                               without processing any further input
+     */
+    public <I> boolean execute(C context, I input, Procedure<I> procedure, OnError<C, I> onError) throws ProcessException, DiscontinuedException {
+        try {
+            procedure.apply(input);
+            return true;
+        } catch (Exception e) {
+
+            if (mapException == null) {
+                throw new ProcessException("An exception was thrown: " + e, e);
+            }
+
+            final ErrorTypes type = mapException.apply(e);
+
+            final Result result;
+            if (adjustError != null) {
+                result = adjustError.apply(context, type);
+            } else {
+                result = new Result(type.destination(), type.penalty());
+            }
+
+            if (onError == null) {
+                throw new IllegalStateException("OnError is not set.");
+            }
+
+            onError.apply(context, input, result, e);
+        }
+        return false;
+    }
+
+    @FunctionalInterface
+    public interface Procedure<I> {
+        void apply(I input) throws Exception;
+    }
+
+    public interface OnError<C, I> {
+        void apply(C context, I input, Result result, Exception e);
+
+        default OnError<C, I> andThen(OnError<C, I> after) {
+            return (c, i, r, e) -> {
+                apply(c, i, r, e);
+                after.apply(c, i, r, e);
+            };
+        }
     }
 }

@@ -17,26 +17,16 @@ abstract public class AbstractCSVRecordReader implements RecordReader {
     protected final boolean hasHeader;
 
     protected final boolean ignoreHeader;
-
-    private final boolean trimDoubleQuote;
-
     protected final Supplier<DateFormat> LAZY_DATE_FORMAT;
-
     protected final Supplier<DateFormat> LAZY_TIME_FORMAT;
-
     protected final Supplier<DateFormat> LAZY_TIMESTAMP_FORMAT;
-
     protected final String dateFormat;
-
     protected final String timeFormat;
-
     protected final String timestampFormat;
-
     protected final RecordSchema schema;
-
     final Integer fieldCount;
-
     final boolean failOnMismatchFieldCount;
+    private final boolean trimDoubleQuote;
 
     AbstractCSVRecordReader(final ComponentLog logger, final RecordSchema schema, final boolean hasHeader, final boolean ignoreHeader,
                             final String dateFormat, final String timeFormat, final String timestampFormat, final boolean trimDoubleQuote) {

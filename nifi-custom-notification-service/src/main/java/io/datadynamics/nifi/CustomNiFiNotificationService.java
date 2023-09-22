@@ -20,14 +20,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class CustomNiFiNotificationService extends AbstractNotificationService {
 
-    Logger logger = LoggerFactory.getLogger(AbstractNotificationService.class);
-
-    public static ObjectMapper mapper = new ObjectMapper();
-
     public static final String NOTIFICATION_TYPE_KEY = "notification.type";
-
     public static final String NOTIFICATION_SUBJECT_KEY = "notification.subject";
-
     public static final PropertyDescriptor PROP_URL = new PropertyDescriptor.Builder()
             .name("URL")
             .description("알람을 전송할 URL")
@@ -35,7 +29,6 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .addValidator(StandardValidators.URL_VALIDATOR)
             .build();
-
     public static final PropertyDescriptor PROP_CONNECTION_TIMEOUT = new PropertyDescriptor.Builder()
             .name("커넥션 타임아웃")
             .description("원격 서비스에 접속을 위한 대기시간")
@@ -43,7 +36,6 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue("10s")
             .build();
-
     public static final PropertyDescriptor PROP_WRITE_TIMEOUT = new PropertyDescriptor.Builder()
             .name("응답 대기시간")
             .description("원격 서비스에 전송한 요청의 응답을 대기하는 시간")
@@ -51,11 +43,8 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue("10s")
             .build();
-
-    private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
-    private final AtomicReference<String> urlReference = new AtomicReference<>();
-
     private static final List<PropertyDescriptor> supportedProperties;
+    public static ObjectMapper mapper = new ObjectMapper();
 
     static {
         supportedProperties = new ArrayList<>();
@@ -63,6 +52,10 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
         supportedProperties.add(PROP_CONNECTION_TIMEOUT);
         supportedProperties.add(PROP_WRITE_TIMEOUT);
     }
+
+    private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
+    private final AtomicReference<String> urlReference = new AtomicReference<>();
+    Logger logger = LoggerFactory.getLogger(AbstractNotificationService.class);
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {

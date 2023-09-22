@@ -8,17 +8,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class CSVValidators {
-    private static final Set<String> illegalChars = new HashSet<>();
-
-    static {
-        illegalChars.add("\r");
-        illegalChars.add("\n");
-    }
-
-    public static final Validator SINGLE_CHAR_VALIDATOR = createSingleCharValidator(false);
-
-    public static final Validator EMPTY_OR_SINGLE_CHAR_VALIDATOR = createSingleCharValidator(true);
-
     public static final Validator UNESCAPED_SINGLE_CHAR_VALIDATOR = new Validator() {
         @Override
         public ValidationResult validate(final String subject, final String input, final ValidationContext context) {
@@ -43,6 +32,15 @@ public class CSVValidators {
                     .build();
         }
     };
+    private static final Set<String> illegalChars = new HashSet<>();
+    public static final Validator SINGLE_CHAR_VALIDATOR = createSingleCharValidator(false);
+
+    public static final Validator EMPTY_OR_SINGLE_CHAR_VALIDATOR = createSingleCharValidator(true);
+
+    static {
+        illegalChars.add("\r");
+        illegalChars.add("\n");
+    }
 
     private static Validator createSingleCharValidator(final boolean canBeEmpty) {
         return new Validator() {

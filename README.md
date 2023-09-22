@@ -154,14 +154,16 @@ DBCP Connection Pool을 이용한 SQL을 실행시키는 예제 Processor입니�
 
 #### Impala JDBC Driver
 
-Impala JDBC Driver로 테스트를 위해서 `lib/ImpalaJDBC42.jar` 파일을 NIFI가 설치되어 있는 적정 위치(예; `/opt/cloudera/parcels/CFM/NIFI/lib`)에 업로드합니다.
+Impala JDBC Driver로 테스트를 위해서 `lib/ImpalaJDBC42.jar` 파일을 NIFI가 설치되어 있는 적정 위치(예; `/opt/cloudera/parcels/CFM/NIFI/lib`)에
+업로드합니다.
 
 * JDBC Driver는 `com.cloudera.impala.jdbc.Driver`
 * JDBC URL은 `jdbc:impala://host:21050/default`
 
 ### Bulk Oracle Insert Processor
 
-Bulk Oracle Insert Processor는 Record Reader를 통해서 수신한 Record를 Avro Parser를 통해 Avro Schema를 확인하여 다음의 Bulk Insert를 위한 SQL을 생성해서 INSERT합니다.
+Bulk Oracle Insert Processor는 Record Reader를 통해서 수신한 Record를 Avro Parser를 통해 Avro Schema를 확인하여 다음의 Bulk Insert를 위한 SQL을
+생성해서 INSERT합니다.
 
 ```
 INSERT ALL

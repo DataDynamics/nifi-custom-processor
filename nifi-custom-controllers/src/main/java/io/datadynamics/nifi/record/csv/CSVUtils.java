@@ -1,7 +1,5 @@
 package io.datadynamics.nifi.record.csv;
 
-import shaded.org.apache.commons.csv.CSVFormat;
-import shaded.org.apache.commons.csv.QuoteMode;
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
@@ -11,12 +9,12 @@ import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import shaded.org.apache.commons.csv.CSVFormat;
+import shaded.org.apache.commons.csv.QuoteMode;
 
 import java.util.Map;
 
 public class CSVUtils {
-
-    private static final Logger LOG = LoggerFactory.getLogger(org.apache.nifi.csv.CSVUtils.class);
 
     public static final AllowableValue CUSTOM = new AllowableValue("custom", "Custom Format",
             "The format of the CSV is configured by using the properties of this Controller Service, such as Value Separator");
@@ -27,7 +25,6 @@ public class CSVUtils {
     public static final AllowableValue INFORMIX_UNLOAD_CSV = new AllowableValue("informix-unload-csv", "Informix Unload Escape Disabled",
             "The format used by Informix when issuing the UNLOAD TO file_name command with escaping disabled");
     public static final AllowableValue MYSQL = new AllowableValue("mysql", "MySQL Format", "CSV data follows the format used by MySQL");
-
     public static final PropertyDescriptor CSV_FORMAT = new PropertyDescriptor.Builder()
             .name("CSV Format")
             .description("Specifies which \"format\" the CSV data is in, or specifies if custom formatting should be used.")
@@ -55,31 +52,6 @@ public class CSVUtils {
             .dependsOn(CSV_FORMAT, CUSTOM)
             .defaultValue("\"")
             .required(true)
-            .build();
-    public static final PropertyDescriptor FIRST_LINE_IS_HEADER = new PropertyDescriptor.Builder()
-            .name("Skip Header Line")
-            .displayName("Treat First Line as Header")
-            .description("Specifies whether or not the first line of CSV should be considered a Header or should be considered a record. If the Schema Access Strategy "
-                    + "indicates that the columns must be defined in the header, then this property will be ignored, since the header must always be "
-                    + "present and won't be processed as a Record. Otherwise, if 'true', then the first line of CSV data will not be processed as a record and if 'false',"
-                    + "then the first line will be interpreted as a record.")
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
-            .allowableValues("true", "false")
-            .defaultValue("false")
-            .required(true)
-            .build();
-    public static final PropertyDescriptor IGNORE_CSV_HEADER = new PropertyDescriptor.Builder()
-            .name("ignore-csv-header")
-            .displayName("Ignore CSV Header Column Names")
-            .description("If the first line of a CSV is a header, and the configured schema does not match the fields named in the header line, this controls how "
-                    + "the Reader will interpret the fields. If this property is true, then the field names mapped to each column are driven only by the configured schema and "
-                    + "any fields not in the schema will be ignored. If this property is false, then the field names found in the CSV Header will be used as the names of the "
-                    + "fields.")
-            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
-            .allowableValues("true", "false")
-            .defaultValue("false")
-            .required(false)
             .build();
     public static final PropertyDescriptor COMMENT_MARKER = new PropertyDescriptor.Builder()
             .name("Comment Marker")
@@ -117,15 +89,6 @@ public class CSVUtils {
             .dependsOn(CSV_FORMAT, CUSTOM)
             .required(true)
             .build();
-    public static final PropertyDescriptor CHARSET = new PropertyDescriptor.Builder()
-            .name("csvutils-character-set")
-            .displayName("Character Set")
-            .description("The Character Encoding that is used to encode/decode the CSV file")
-            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
-            .addValidator(StandardValidators.CHARACTER_SET_VALIDATOR)
-            .defaultValue("UTF-8")
-            .required(true)
-            .build();
     public static final PropertyDescriptor ALLOW_DUPLICATE_HEADER_NAMES = new PropertyDescriptor.Builder()
             .name("csvutils-allow-duplicate-header-names")
             .displayName("Allow Duplicate Header Names")
@@ -141,15 +104,6 @@ public class CSVUtils {
             .defaultValue("true")
             .required(false)
             .build();
-
-    // CSV Format fields for writers only
-    public static final AllowableValue QUOTE_ALL = new AllowableValue("ALL", "Quote All Values", "All values will be quoted using the configured quote character.");
-    public static final AllowableValue QUOTE_MINIMAL = new AllowableValue("MINIMAL", "Quote Minimal",
-            "Values will be quoted only if they are contain special characters such as newline characters or field separators.");
-    public static final AllowableValue QUOTE_NON_NUMERIC = new AllowableValue("NON_NUMERIC", "Quote Non-Numeric Values", "Values will be quoted unless the value is a number.");
-    public static final AllowableValue QUOTE_NONE = new AllowableValue("NONE", "Do Not Quote Values",
-            "Values will not be quoted. Instead, all special characters will be escaped using the configured escape character.");
-
     public static final PropertyDescriptor QUOTE_MODE = new PropertyDescriptor.Builder()
             .name("Quote Mode")
             .description("Specifies how fields should be quoted when they are written")
@@ -177,6 +131,47 @@ public class CSVUtils {
             .dependsOn(CSV_FORMAT, CUSTOM)
             .required(true)
             .build();
+    public static final PropertyDescriptor FIRST_LINE_IS_HEADER = new PropertyDescriptor.Builder()
+            .name("Skip Header Line")
+            .displayName("Treat First Line as Header")
+            .description("Specifies whether or not the first line of CSV should be considered a Header or should be considered a record. If the Schema Access Strategy "
+                    + "indicates that the columns must be defined in the header, then this property will be ignored, since the header must always be "
+                    + "present and won't be processed as a Record. Otherwise, if 'true', then the first line of CSV data will not be processed as a record and if 'false',"
+                    + "then the first line will be interpreted as a record.")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .required(true)
+            .build();
+    public static final PropertyDescriptor IGNORE_CSV_HEADER = new PropertyDescriptor.Builder()
+            .name("ignore-csv-header")
+            .displayName("Ignore CSV Header Column Names")
+            .description("If the first line of a CSV is a header, and the configured schema does not match the fields named in the header line, this controls how "
+                    + "the Reader will interpret the fields. If this property is true, then the field names mapped to each column are driven only by the configured schema and "
+                    + "any fields not in the schema will be ignored. If this property is false, then the field names found in the CSV Header will be used as the names of the "
+                    + "fields.")
+            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .required(false)
+            .build();
+    public static final PropertyDescriptor CHARSET = new PropertyDescriptor.Builder()
+            .name("csvutils-character-set")
+            .displayName("Character Set")
+            .description("The Character Encoding that is used to encode/decode the CSV file")
+            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
+            .addValidator(StandardValidators.CHARACTER_SET_VALIDATOR)
+            .defaultValue("UTF-8")
+            .required(true)
+            .build();
+    // CSV Format fields for writers only
+    public static final AllowableValue QUOTE_ALL = new AllowableValue("ALL", "Quote All Values", "All values will be quoted using the configured quote character.");
+    public static final AllowableValue QUOTE_MINIMAL = new AllowableValue("MINIMAL", "Quote Minimal",
+            "Values will be quoted only if they are contain special characters such as newline characters or field separators.");
+    public static final AllowableValue QUOTE_NON_NUMERIC = new AllowableValue("NON_NUMERIC", "Quote Non-Numeric Values", "Values will be quoted unless the value is a number.");
+    public static final AllowableValue QUOTE_NONE = new AllowableValue("NONE", "Do Not Quote Values",
+            "Values will not be quoted. Instead, all special characters will be escaped using the configured escape character.");
     public static final PropertyDescriptor INCLUDE_HEADER_LINE = new PropertyDescriptor.Builder()
             .name("Include Header Line")
             .description("Specifies whether or not the CSV column names should be written out as the first line.")
@@ -184,6 +179,7 @@ public class CSVUtils {
             .defaultValue("true")
             .required(true)
             .build();
+    private static final Logger LOG = LoggerFactory.getLogger(org.apache.nifi.csv.CSVUtils.class);
 
     private CSVUtils() {
         // intentionally blank, prevents instantiation

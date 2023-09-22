@@ -1,13 +1,13 @@
 package io.datadynamics.nifi.record.csv;
 
-import shaded.org.apache.commons.csv.CSVFormat;
-import shaded.org.apache.commons.csv.CSVPrinter;
 import org.apache.nifi.schema.access.SchemaAccessWriter;
 import org.apache.nifi.serialization.AbstractRecordSetWriter;
 import org.apache.nifi.serialization.RecordSetWriter;
 import org.apache.nifi.serialization.WriteResult;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.*;
+import shaded.org.apache.commons.csv.CSVFormat;
+import shaded.org.apache.commons.csv.CSVPrinter;
 
 import java.io.IOException;
 import java.io.OutputStream;

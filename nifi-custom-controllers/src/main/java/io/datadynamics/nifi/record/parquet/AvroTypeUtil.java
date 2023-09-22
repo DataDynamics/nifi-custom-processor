@@ -39,8 +39,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 public class AvroTypeUtil {
-    private static final Logger logger = LoggerFactory.getLogger(AvroTypeUtil.class);
     public static final String AVRO_SCHEMA_FORMAT = "avro";
+    private static final Logger logger = LoggerFactory.getLogger(AvroTypeUtil.class);
     private static final String LOGICAL_TYPE_DATE = "date";
     private static final String LOGICAL_TYPE_TIME_MILLIS = "time-millis";
     private static final String LOGICAL_TYPE_TIME_MICROS = "time-micros";
@@ -718,6 +718,7 @@ public class AvroTypeUtil {
         Timestamp t = DataTypeUtils.toTimestamp(rawValue, () -> DataTypeUtils.getDateFormat(format), fieldName);
         return t.getTime();
     }
+
     private static Long getLongFromTimestamp(final Object rawValue, final Schema fieldSchema, final String fieldName, String timestampFormat) {
         if (StringUtils.isEmpty(timestampFormat)) {
             final String format = AvroTypeUtil.determineDataType(fieldSchema).getFormat();

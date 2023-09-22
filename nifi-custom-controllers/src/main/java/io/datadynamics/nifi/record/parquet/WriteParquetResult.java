@@ -22,10 +22,9 @@ public class WriteParquetResult extends AbstractRecordSetWriter {
     private final Schema schema;
     private final ParquetWriter<GenericRecord> parquetWriter;
     private final ComponentLog componentLogger;
+    private final String timestampFormatPropertyKeyName; // FIXED
     private SchemaAccessWriter accessWriter;
     private RecordSchema recordSchema;
-
-    private final String timestampFormatPropertyKeyName; // FIXED
     private int addHours; // FIXED
 
     public WriteParquetResult(final Schema avroSchema, final RecordSchema recordSchema, final SchemaAccessWriter accessWriter, final OutputStream out,

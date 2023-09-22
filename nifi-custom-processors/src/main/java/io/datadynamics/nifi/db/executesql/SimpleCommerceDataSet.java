@@ -17,6 +17,7 @@ public class SimpleCommerceDataSet {
     static String createPersons = "create table persons (id integer, name varchar(100), code integer)";
     static String createProducts = "create table products (id integer, name varchar(100), code integer)";
     static String createRelationships = "create table relationships (id integer,name varchar(100), code integer)";
+    static Random rng = new Random(53495);
 
     public static void loadTestData2Database(Connection con, int nrOfPersons, int nrOfProducts, int nrOfRels) throws SQLException {
 
@@ -57,8 +58,6 @@ public class SimpleCommerceDataSet {
 
         st.close();
     }
-
-    static Random rng = new Random(53495);
 
     static private void loadPersons(Statement st, int nr) throws SQLException {
         st.executeUpdate("insert into persons values (" + nr + ", '" + createRandomName() + "', " + rng.nextInt(469946) + ")");

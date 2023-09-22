@@ -18,7 +18,6 @@ import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.reporting.AbstractReportingTask;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.reporting.ReportingContext;
-import org.apache.nifi.util.FormatUtils;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
@@ -37,11 +36,6 @@ public class MonitorMemoryUsageReportingTask extends AbstractReportingTask {
     public static final Pattern PERCENTAGE_PATTERN = Pattern.compile("\\d{1,2}%");
 
     public static final Pattern DATA_SIZE_PATTERN = DataUnit.DATA_SIZE_PATTERN;
-
-    private final static List<PropertyDescriptor> propertyDescriptors;
-
-    public static ObjectMapper mapper = new ObjectMapper();
-
     public static final PropertyDescriptor THRESHOLD_PROPERTY = new PropertyDescriptor.Builder()
             .name("메모리 사용율")
             .displayName("메모리 사용율")
@@ -88,6 +82,8 @@ public class MonitorMemoryUsageReportingTask extends AbstractReportingTask {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue("10s")
             .build();
+    private final static List<PropertyDescriptor> propertyDescriptors;
+    public static ObjectMapper mapper = new ObjectMapper();
 
     static {
         List<PropertyDescriptor> _propertyDescriptors = new ArrayList<>();
@@ -225,6 +221,14 @@ public class MonitorMemoryUsageReportingTask extends AbstractReportingTask {
     public void onStopped() {
     }
 
+    private String getHostname() throws ProcessException {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException("서버의 호스트명을 확인할 수 없습니다.", e);
+        }
+    }
+
     private static class ThresholdValidator implements Validator {
         @Override
         public ValidationResult validate(final String subject, final String input, final ValidationContext context) {
@@ -235,14 +239,6 @@ public class MonitorMemoryUsageReportingTask extends AbstractReportingTask {
             }
 
             return new ValidationResult.Builder().input(input).subject(subject).valid(true).build();
-        }
-    }
-
-    private String getHostname() throws ProcessException {
-        try {
-            return InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            throw new RuntimeException("서버의 호스트명을 확인할 수 없습니다.", e);
         }
     }
 }

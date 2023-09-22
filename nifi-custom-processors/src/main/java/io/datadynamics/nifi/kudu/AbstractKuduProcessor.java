@@ -60,8 +60,6 @@ import java.util.function.Consumer;
 
 public abstract class AbstractKuduProcessor extends AbstractProcessor {
 
-    Logger logger = LoggerFactory.getLogger(AbstractProcessor.class);
-
     static final PropertyDescriptor KUDU_MASTERS = new Builder()
             .name("Kudu Masters")
             .description("연결할 Kudu Master 주소이며 쉼표로 나열할 수 있습니다.")
@@ -69,7 +67,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
-
     static final PropertyDescriptor KERBEROS_CREDENTIALS_SERVICE = new Builder()
             .name("kerberos-credentials-service")
             .displayName("Kerberos Credentials Service")
@@ -77,7 +74,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .required(false)
             .identifiesControllerService(KerberosCredentialsService.class)
             .build();
-
     static final PropertyDescriptor KERBEROS_USER_SERVICE = new PropertyDescriptor.Builder()
             .name("kerberos-user-service")
             .displayName("Kerberos User Service")
@@ -85,7 +81,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .identifiesControllerService(KerberosUserService.class)
             .required(false)
             .build();
-
     static final PropertyDescriptor KERBEROS_PRINCIPAL = new PropertyDescriptor.Builder()
             .name("kerberos-principal")
             .displayName("Kerberos Principal")
@@ -95,7 +90,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.createAttributeExpressionLanguageValidator(AttributeExpression.ResultType.STRING))
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
-
     static final PropertyDescriptor KERBEROS_PASSWORD = new PropertyDescriptor.Builder()
             .name("kerberos-password")
             .displayName("Kerberos Password")
@@ -104,7 +98,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .sensitive(true)
             .build();
-
     static final PropertyDescriptor KUDU_OPERATION_TIMEOUT_MS = new Builder()
             .name("kudu-operations-timeout-ms")
             .displayName("Kudu Operation Timeout")
@@ -114,7 +107,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
-
     static final PropertyDescriptor KUDU_KEEP_ALIVE_PERIOD_TIMEOUT_MS = new Builder()
             .name("kudu-keep-alive-period-timeout-ms")
             .displayName("Kudu Keep Alive Period Timeout")
@@ -124,7 +116,15 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
-
+    static final PropertyDescriptor KUDU_SASL_PROTOCOL_NAME = new Builder()
+            .name("kudu-sasl-protocol-name")
+            .displayName("Kudu SASL Protocol Name")
+            .description("The SASL protocol name to use for authenticating via Kerberos. Must match the service principal name.")
+            .required(false)
+            .defaultValue("kudu")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .build();
     /**
      * 기본 Kudu Client의 Worker Thread는 Core의 개수만큼 설정이 되므로 baremetal에서는 이 값을 낮춰서 설정해야 한다.
      */
@@ -138,29 +138,16 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .defaultValue(Integer.toString(DEFAULT_WORKER_COUNT))
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
             .build();
-
-    static final PropertyDescriptor KUDU_SASL_PROTOCOL_NAME = new Builder()
-            .name("kudu-sasl-protocol-name")
-            .displayName("Kudu SASL Protocol Name")
-            .description("The SASL protocol name to use for authenticating via Kerberos. Must match the service principal name.")
-            .required(false)
-            .defaultValue("kudu")
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
-            .build();
-
     private static final FieldConverter<Object, Timestamp> TIMESTAMP_FIELD_CONVERTER = new ObjectTimestampFieldConverter();
-
     /**
      * Timestamp Pattern overrides default RecordFieldType.TIMESTAMP pattern of yyyy-MM-dd HH:mm:ss with optional microseconds
      */
     private static final String MICROSECOND_TIMESTAMP_PATTERN = "yyyy-MM-dd HH:mm:ss[.SSSSSS]";
-
-    private volatile KuduClient kuduClient;
     private final ReadWriteLock kuduClientReadWriteLock = new ReentrantReadWriteLock();
     private final Lock kuduClientReadLock = kuduClientReadWriteLock.readLock();
     private final Lock kuduClientWriteLock = kuduClientReadWriteLock.writeLock();
-
+    Logger logger = LoggerFactory.getLogger(AbstractProcessor.class);
+    private volatile KuduClient kuduClient;
     private volatile KerberosUser kerberosUser;
 
     protected KerberosUser getKerberosUser() {

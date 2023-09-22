@@ -108,6 +108,16 @@ public class ParquetUtils {
             .build();
 
     public static final List<AllowableValue> COMPRESSION_TYPES = getCompressionTypes();
+    // NOTE: This needs to be named the same as the compression property in AbstractPutHDFSRecord
+    public static final String COMPRESSION_TYPE_PROP_NAME = "compression-type";
+    public static final PropertyDescriptor COMPRESSION_TYPE = new PropertyDescriptor.Builder()
+            .name(COMPRESSION_TYPE_PROP_NAME)
+            .displayName("Compression Type")
+            .description("The type of compression for the file being written.")
+            .allowableValues(COMPRESSION_TYPES.toArray(new AllowableValue[0]))
+            .defaultValue(COMPRESSION_TYPES.get(0).getValue())
+            .required(true)
+            .build();
 
     private static List<AllowableValue> getCompressionTypes() {
         final List<AllowableValue> compressionTypes = new ArrayList<>();
@@ -117,18 +127,6 @@ public class ParquetUtils {
         }
         return Collections.unmodifiableList(compressionTypes);
     }
-
-    // NOTE: This needs to be named the same as the compression property in AbstractPutHDFSRecord
-    public static final String COMPRESSION_TYPE_PROP_NAME = "compression-type";
-
-    public static final PropertyDescriptor COMPRESSION_TYPE = new PropertyDescriptor.Builder()
-            .name(COMPRESSION_TYPE_PROP_NAME)
-            .displayName("Compression Type")
-            .description("The type of compression for the file being written.")
-            .allowableValues(COMPRESSION_TYPES.toArray(new AllowableValue[0]))
-            .defaultValue(COMPRESSION_TYPES.get(0).getValue())
-            .required(true)
-            .build();
 
     /**
      * Creates a ParquetConfig instance from the given PropertyContext.

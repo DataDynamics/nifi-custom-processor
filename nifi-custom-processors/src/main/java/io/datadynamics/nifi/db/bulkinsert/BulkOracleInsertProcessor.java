@@ -52,19 +52,16 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
             .name("failure")
             .description("SQL 실행 에러. 입력으로 들어온 FlowFile은 라우팅되거나 페널티를 부여하게 됨")
             .build();
-
-    static final Relationship REL_RETRY = new Relationship.Builder()
-            .name("retry")
-            .description("데이터베이스 접근는 성공하였으나 INSERT 등에서 실패시 재시도를 위해서 라우팅함.")
-            .build();
-
     public static final PropertyDescriptor DBCP_SERVICE = new PropertyDescriptor.Builder()
             .name("Database Connection Pooling Service")
             .description("데이터베이스 연결에 필요한 커넥션 풀링 컨트롤러 서비스")
             .required(true)
             .identifiesControllerService(DBCPService.class)
             .build();
-
+    static final Relationship REL_RETRY = new Relationship.Builder()
+            .name("retry")
+            .description("데이터베이스 접근는 성공하였으나 INSERT 등에서 실패시 재시도를 위해서 라우팅함.")
+            .build();
     static final PropertyDescriptor RECORD_READER_FACTORY = new PropertyDescriptor.Builder()
             .name("put-db-record-record-reader")
             .displayName("Record Reader")
@@ -124,6 +121,11 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
     static final String BULK_INSERT_ERROR = "bulk.oracle.insert.error";
 
     protected Set<Relationship> relationships;
+    protected List<PropertyDescriptor> propDescriptors;
+    /**
+     * DBCP Connection Pooling Service
+     */
+    protected DBCPService dbcpService;
 
     @Override
     public Set<Relationship> getRelationships() {
@@ -133,8 +135,6 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         relationships.add(REL_RETRY);
         return relationships;
     }
-
-    protected List<PropertyDescriptor> propDescriptors;
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
@@ -149,11 +149,6 @@ public class BulkOracleInsertProcessor extends AbstractProcessor {
         propDescriptors.add(AVRO_SCHEMA);
         return propDescriptors;
     }
-
-    /**
-     * DBCP Connection Pooling Service
-     */
-    protected DBCPService dbcpService;
 
     @OnScheduled
     public void onScheduled(ProcessContext context) {

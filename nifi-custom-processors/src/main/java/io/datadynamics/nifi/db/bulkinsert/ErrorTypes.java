@@ -56,6 +56,14 @@ public enum ErrorTypes {
         return new Result(destination, penalty);
     }
 
+    public Destination destination() {
+        return this.destination;
+    }
+
+    public Penalty penalty() {
+        return this.penalty;
+    }
+
     /**
      * Represents the destination of input.
      */
@@ -68,14 +76,6 @@ public enum ErrorTypes {
      */
     public enum Penalty {
         Yield, Penalize, None
-    }
-
-    public Destination destination() {
-        return this.destination;
-    }
-
-    public Penalty penalty() {
-        return this.penalty;
     }
 
     /**

@@ -49,15 +49,12 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .name("failure")
             .description("SQL query execution failed. Incoming FlowFile will be penalized and routed to this relationship")
             .build();
-    protected Set<Relationship> relationships;
-
     public static final PropertyDescriptor DBCP_SERVICE = new PropertyDescriptor.Builder()
             .name("Database Connection Pooling Service")
             .description("The Controller Service that is used to obtain connection to database")
             .required(true)
             .identifiesControllerService(DBCPService.class)
             .build();
-
     public static final PropertyDescriptor SQL_PRE_QUERY = new PropertyDescriptor.Builder()
             .name("sql-pre-query")
             .displayName("SQL Pre-Query")
@@ -69,7 +66,6 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
-
     public static final PropertyDescriptor SQL_SELECT_QUERY = new PropertyDescriptor.Builder()
             .name("SQL select query")
             .description("The SQL select query to execute. The query can be empty, a constant value, or built from attributes "
@@ -81,7 +77,6 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
-
     public static final PropertyDescriptor SQL_POST_QUERY = new PropertyDescriptor.Builder()
             .name("sql-post-query")
             .displayName("SQL Post-Query")
@@ -93,7 +88,6 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
-
     public static final PropertyDescriptor QUERY_TIMEOUT = new PropertyDescriptor.Builder()
             .name("Max Wait Time")
             .description("The maximum amount of time allowed for a running SQL select query "
@@ -104,7 +98,6 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .sensitive(false)
             .build();
-
     public static final PropertyDescriptor MAX_ROWS_PER_FLOW_FILE = new PropertyDescriptor.Builder()
             .name("esql-max-rows")
             .displayName("Max Rows Per Flow File")
@@ -115,7 +108,6 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .addValidator(StandardValidators.NON_NEGATIVE_INTEGER_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
-
     public static final PropertyDescriptor OUTPUT_BATCH_SIZE = new PropertyDescriptor.Builder()
             .name("esql-output-batch-size")
             .displayName("Output Batch Size")
@@ -129,7 +121,6 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .addValidator(StandardValidators.NON_NEGATIVE_INTEGER_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
-
     public static final PropertyDescriptor FETCH_SIZE = new PropertyDescriptor.Builder()
             .name("esql-fetch-size")
             .displayName("Fetch Size")
@@ -140,7 +131,6 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .addValidator(StandardValidators.NON_NEGATIVE_INTEGER_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
-
     public static final PropertyDescriptor AUTO_COMMIT = new PropertyDescriptor.Builder()
             .name("esql-auto-commit")
             .displayName("Set Auto Commit")
@@ -156,7 +146,7 @@ public abstract class AbstractExecuteSQL extends AbstractProcessor {
             .defaultValue("true")
             .required(true)
             .build();
-
+    protected Set<Relationship> relationships;
     protected List<PropertyDescriptor> propDescriptors;
 
     protected DBCPService dbcpService;

@@ -93,97 +93,6 @@ public class JdbcCommon {
         }
     }
 
-    public static class AvroConversionOptions {
-
-        private final String recordName;
-        private final int maxRows;
-        private final boolean convertNames;
-        private final boolean useLogicalTypes;
-
-        private final int defaultPrecision;
-        private final int defaultScale;
-        private final CodecFactory codec;
-
-        private AvroConversionOptions(String recordName, int maxRows, boolean convertNames, boolean useLogicalTypes,
-                                      int defaultPrecision, int defaultScale, CodecFactory codec) {
-            this.recordName = recordName;
-            this.maxRows = maxRows;
-            this.convertNames = convertNames;
-            this.useLogicalTypes = useLogicalTypes;
-            this.defaultPrecision = defaultPrecision;
-            this.defaultScale = defaultScale;
-            this.codec = codec;
-        }
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public int getDefaultPrecision() {
-            return defaultPrecision;
-        }
-
-        public int getDefaultScale() {
-            return defaultScale;
-        }
-
-        public boolean isUseLogicalTypes() {
-            return useLogicalTypes;
-        }
-
-        public static class Builder {
-            private String recordName;
-            private int maxRows = 0;
-            private boolean convertNames = false;
-            private boolean useLogicalTypes = false;
-            private int defaultPrecision = DEFAULT_PRECISION_VALUE;
-            private int defaultScale = DEFAULT_SCALE_VALUE;
-            private CodecFactory codec = CodecFactory.nullCodec();
-
-            /**
-             * Specify a priori record name to use if it cannot be determined from the result set.
-             */
-            public Builder recordName(String recordName) {
-                this.recordName = recordName;
-                return this;
-            }
-
-            public Builder maxRows(int maxRows) {
-                this.maxRows = maxRows;
-                return this;
-            }
-
-            public Builder convertNames(boolean convertNames) {
-                this.convertNames = convertNames;
-                return this;
-            }
-
-            public Builder useLogicalTypes(boolean useLogicalTypes) {
-                this.useLogicalTypes = useLogicalTypes;
-                return this;
-            }
-
-            public Builder defaultPrecision(int defaultPrecision) {
-                this.defaultPrecision = defaultPrecision;
-                return this;
-            }
-
-            public Builder defaultScale(int defaultScale) {
-                this.defaultScale = defaultScale;
-                return this;
-            }
-
-            public Builder codecFactory(String codec) {
-                this.codec = AvroUtil.getCodecFactory(codec);
-                return this;
-            }
-
-            public AvroConversionOptions build() {
-                return new AvroConversionOptions(recordName, maxRows, convertNames, useLogicalTypes, defaultPrecision, defaultScale, codec);
-            }
-        }
-    }
-
     public static long convertToAvroStream(final ResultSet rs, final OutputStream outStream, final AvroConversionOptions options, final ResultSetRowCallback callback) throws SQLException, IOException {
         final Schema schema = createSchema(rs, options);
         final GenericRecord rec = new GenericData.Record(schema);
@@ -870,5 +779,96 @@ public class JdbcCommon {
         void processRow(ResultSet resultSet) throws IOException;
 
         void applyStateChanges();
+    }
+
+    public static class AvroConversionOptions {
+
+        private final String recordName;
+        private final int maxRows;
+        private final boolean convertNames;
+        private final boolean useLogicalTypes;
+
+        private final int defaultPrecision;
+        private final int defaultScale;
+        private final CodecFactory codec;
+
+        private AvroConversionOptions(String recordName, int maxRows, boolean convertNames, boolean useLogicalTypes,
+                                      int defaultPrecision, int defaultScale, CodecFactory codec) {
+            this.recordName = recordName;
+            this.maxRows = maxRows;
+            this.convertNames = convertNames;
+            this.useLogicalTypes = useLogicalTypes;
+            this.defaultPrecision = defaultPrecision;
+            this.defaultScale = defaultScale;
+            this.codec = codec;
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public int getDefaultPrecision() {
+            return defaultPrecision;
+        }
+
+        public int getDefaultScale() {
+            return defaultScale;
+        }
+
+        public boolean isUseLogicalTypes() {
+            return useLogicalTypes;
+        }
+
+        public static class Builder {
+            private String recordName;
+            private int maxRows = 0;
+            private boolean convertNames = false;
+            private boolean useLogicalTypes = false;
+            private int defaultPrecision = DEFAULT_PRECISION_VALUE;
+            private int defaultScale = DEFAULT_SCALE_VALUE;
+            private CodecFactory codec = CodecFactory.nullCodec();
+
+            /**
+             * Specify a priori record name to use if it cannot be determined from the result set.
+             */
+            public Builder recordName(String recordName) {
+                this.recordName = recordName;
+                return this;
+            }
+
+            public Builder maxRows(int maxRows) {
+                this.maxRows = maxRows;
+                return this;
+            }
+
+            public Builder convertNames(boolean convertNames) {
+                this.convertNames = convertNames;
+                return this;
+            }
+
+            public Builder useLogicalTypes(boolean useLogicalTypes) {
+                this.useLogicalTypes = useLogicalTypes;
+                return this;
+            }
+
+            public Builder defaultPrecision(int defaultPrecision) {
+                this.defaultPrecision = defaultPrecision;
+                return this;
+            }
+
+            public Builder defaultScale(int defaultScale) {
+                this.defaultScale = defaultScale;
+                return this;
+            }
+
+            public Builder codecFactory(String codec) {
+                this.codec = AvroUtil.getCodecFactory(codec);
+                return this;
+            }
+
+            public AvroConversionOptions build() {
+                return new AvroConversionOptions(recordName, maxRows, convertNames, useLogicalTypes, defaultPrecision, defaultScale, codec);
+            }
+        }
     }
 }

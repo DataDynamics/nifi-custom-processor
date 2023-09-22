@@ -8,14 +8,6 @@ import org.apache.avro.file.CodecFactory;
  */
 public class AvroUtil {
 
-    public static enum CodecType {
-        BZIP2,
-        DEFLATE,
-        NONE,
-        SNAPPY,
-        LZO
-    }
-
     public static CodecFactory getCodecFactory(String property) {
         CodecType type = CodecType.valueOf(property);
         switch (type) {
@@ -31,6 +23,14 @@ public class AvroUtil {
             default:
                 return CodecFactory.nullCodec();
         }
+    }
+
+    public static enum CodecType {
+        BZIP2,
+        DEFLATE,
+        NONE,
+        SNAPPY,
+        LZO
     }
 
 }

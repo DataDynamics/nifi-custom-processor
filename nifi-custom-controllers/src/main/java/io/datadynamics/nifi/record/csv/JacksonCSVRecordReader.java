@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvParser;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
-import shaded.org.apache.commons.csv.CSVFormat;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -15,6 +14,7 @@ import org.apache.nifi.serialization.record.DataType;
 import org.apache.nifi.serialization.record.MapRecord;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.RecordSchema;
+import shaded.org.apache.commons.csv.CSVFormat;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,11 +24,10 @@ import java.util.*;
 
 
 public class JacksonCSVRecordReader extends AbstractCSVRecordReader {
+    private volatile static CsvMapper mapper = new CsvMapper().enable(CsvParser.Feature.WRAP_AS_ARRAY);
     private final MappingIterator<String[]> recordStream;
     private List<String> rawFieldNames = null;
     private boolean allowDuplicateHeaderNames;
-
-    private volatile static CsvMapper mapper = new CsvMapper().enable(CsvParser.Feature.WRAP_AS_ARRAY);
 
     public JacksonCSVRecordReader(final InputStream in, final ComponentLog logger, final RecordSchema schema, final CSVFormat csvFormat, final boolean hasHeader, final boolean ignoreHeader,
                                   final String dateFormat, final String timeFormat, final String timestampFormat, final String encoding, final boolean trimDoubleQuote) throws IOException {

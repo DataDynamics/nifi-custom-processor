@@ -45,8 +45,6 @@ import org.apache.nifi.serialization.record.RecordField;
 import org.apache.nifi.serialization.record.RecordFieldType;
 import org.apache.nifi.serialization.record.RecordSet;
 import org.apache.nifi.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.security.auth.login.LoginException;
 import java.io.InputStream;
@@ -68,16 +66,17 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.*;
 @WritesAttribute(attribute = "record.count", description = "Kudu에 기록한 레코드 수")
 public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
 
+    public static final PropertyDescriptor RECORD_READER = new Builder()
+            .name("record-reader")
+            .displayName("Record Reader")
+            .description("Incoming flow file에서 레코드를 읽기 위한 서비스입니다.")
+            .identifiesControllerService(RecordReaderFactory.class)
+            .required(true)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
+    public static final String RECORD_COUNT_ATTR = "record.count";
     protected static final Validator JsonValidator = new JsonValidator();
-
     protected static final ObjectMapper mapper = new ObjectMapper();
-
-    static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure", "Route to Failure",
-            "The FlowFile containing the Records that failed to insert will be routed to the 'failure' relationship");
-    static final AllowableValue FAILURE_STRATEGY_ROLLBACK = new AllowableValue("rollback", "Rollback Session",
-            "If any Record cannot be inserted, all FlowFiles in the session will be rolled back to their input queue. This means that if data cannot be pushed, " +
-                    "it will block any subsequent data from be pushed to Kudu as well until the issue is resolved. However, this may be advantageous if a strict ordering is required.");
-
     protected static final PropertyDescriptor TABLE_NAME = new Builder()
             .name("테이블명")
             .description("데이터를 저장할 Kudu 테이블명")
@@ -94,25 +93,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
             .addValidator(StandardValidators.INTEGER_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
-
-    public static final PropertyDescriptor RECORD_READER = new Builder()
-            .name("record-reader")
-            .displayName("Record Reader")
-            .description("Incoming flow file에서 레코드를 읽기 위한 서비스입니다.")
-            .identifiesControllerService(RecordReaderFactory.class)
-            .required(true)
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .build();
-
-    static final PropertyDescriptor FAILURE_STRATEGY = new Builder()
-            .name("Failure Strategy")
-            .displayName("실패 처리 방법")
-            .description("배치에서 하나 이상의 레코드를 Kudu로 전송할 수 없는 경우 실패 처리 방법을 지정합니다.")
-            .required(true)
-            .allowableValues(FAILURE_STRATEGY_ROUTE, FAILURE_STRATEGY_ROLLBACK)
-            .defaultValue(FAILURE_STRATEGY_ROUTE.getValue())
-            .build();
-
     protected static final PropertyDescriptor LOWERCASE_FIELD_NAMES = new Builder()
             .name("Lowercase Field Names")
             .description("Kudu 테이블 컬럼의 인덱스를 찾을 때 컬럼명을 소문자로 변환")
@@ -121,7 +101,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .build();
-
     protected static final PropertyDescriptor HANDLE_SCHEMA_DRIFT = new Builder()
             .name("Handle Schema Drift")
             .description("If set to true, when fields with names that are not in the target Kudu table " +
@@ -131,37 +110,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .build();
-
-    static final PropertyDescriptor DATA_RECORD_PATH = new Builder()
-            .name("Data RecordPath")
-            .displayName("Data RecordPath")
-            .description("If specified, this property denotes a RecordPath that will be evaluated against each incoming Record and the Record that results from evaluating the RecordPath will be sent to" +
-                    " Kudu instead of sending the entire incoming Record. If not specified, the entire incoming Record will be published to Kudu.")
-            .required(false)
-            .addValidator(new RecordPathValidator())
-            .expressionLanguageSupported(NONE)
-            .build();
-
-    static final PropertyDescriptor OPERATION_RECORD_PATH = new Builder()
-            .name("Operation RecordPath")
-            .displayName("Operation RecordPath")
-            .description("If specified, this property denotes a RecordPath that will be evaluated against each incoming Record in order to determine the Kudu Operation Type. When evaluated, the " +
-                    "RecordPath must evaluate to one of hte valid Kudu Operation Types, or the incoming FlowFile will be routed to failure. If this property is specified, the <Kudu Operation Type> property" +
-                    " will be ignored.")
-            .required(false)
-            .addValidator(new RecordPathValidator())
-            .expressionLanguageSupported(NONE)
-            .build();
-
-    static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
-            .name("kudu-column-timestamp-patterns")
-            .displayName("Apply Custom Column Timestamp Patterns (JSON)")
-            .description("Timestamp 컬럼에 Timestamp Format을 별도로 지정할 수 있습니다.")
-            .required(false)
-            .addValidator(JsonValidator)
-            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
-            .build();
-
     protected static final Validator OperationTypeValidator = new Validator() {
         @Override
         public ValidationResult validate(String subject, String value, ValidationContext context) {
@@ -185,7 +133,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
                     .explanation(explanation).build();
         }
     };
-
     protected static final PropertyDescriptor INSERT_OPERATION = new Builder()
             .name("Insert Operation")
             .displayName("Kudu Operation Type")
@@ -197,7 +144,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(OperationTypeValidator)
             .build();
-
     protected static final PropertyDescriptor FLUSH_MODE = new Builder()
             .name("Flush Mode")
             .description("Set the new flush mode for a kudu session.\n" +
@@ -210,7 +156,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .required(true)
             .build();
-
     protected static final PropertyDescriptor FLOWFILE_BATCH_SIZE = new Builder()
             .name("FlowFiles per Batch")
             .description("The maximum number of FlowFiles to process in a single execution, between 1 - 100000. " +
@@ -222,7 +167,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
             .addValidator(StandardValidators.createLongValidator(1, 100000, true))
             .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
-
     protected static final PropertyDescriptor BATCH_SIZE = new Builder()
             .name("Batch Size")
             .displayName("Max Records per Batch")
@@ -234,7 +178,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
             .addValidator(StandardValidators.createLongValidator(1, 100000, true))
             .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
-
     protected static final PropertyDescriptor IGNORE_NULL = new Builder()
             .name("Ignore NULL")
             .description("Kudu Put 작업시 NULL 무시. true로 설정하면 non-null만 업데이트합니다.")
@@ -243,7 +186,6 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
-
     protected static final Relationship REL_SUCCESS = new Relationship.Builder()
             .name("success")
             .description("A FlowFile is routed to this relationship after it has been successfully stored in Kudu")
@@ -252,9 +194,46 @@ public class CustomTimestampPatternPutKudu extends AbstractKuduProcessor {
             .name("failure")
             .description("A FlowFile is routed to this relationship if it cannot be sent to Kudu")
             .build();
-
-    public static final String RECORD_COUNT_ATTR = "record.count";
-
+    static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure", "Route to Failure",
+            "The FlowFile containing the Records that failed to insert will be routed to the 'failure' relationship");
+    static final AllowableValue FAILURE_STRATEGY_ROLLBACK = new AllowableValue("rollback", "Rollback Session",
+            "If any Record cannot be inserted, all FlowFiles in the session will be rolled back to their input queue. This means that if data cannot be pushed, " +
+                    "it will block any subsequent data from be pushed to Kudu as well until the issue is resolved. However, this may be advantageous if a strict ordering is required.");
+    static final PropertyDescriptor FAILURE_STRATEGY = new Builder()
+            .name("Failure Strategy")
+            .displayName("실패 처리 방법")
+            .description("배치에서 하나 이상의 레코드를 Kudu로 전송할 수 없는 경우 실패 처리 방법을 지정합니다.")
+            .required(true)
+            .allowableValues(FAILURE_STRATEGY_ROUTE, FAILURE_STRATEGY_ROLLBACK)
+            .defaultValue(FAILURE_STRATEGY_ROUTE.getValue())
+            .build();
+    static final PropertyDescriptor DATA_RECORD_PATH = new Builder()
+            .name("Data RecordPath")
+            .displayName("Data RecordPath")
+            .description("If specified, this property denotes a RecordPath that will be evaluated against each incoming Record and the Record that results from evaluating the RecordPath will be sent to" +
+                    " Kudu instead of sending the entire incoming Record. If not specified, the entire incoming Record will be published to Kudu.")
+            .required(false)
+            .addValidator(new RecordPathValidator())
+            .expressionLanguageSupported(NONE)
+            .build();
+    static final PropertyDescriptor OPERATION_RECORD_PATH = new Builder()
+            .name("Operation RecordPath")
+            .displayName("Operation RecordPath")
+            .description("If specified, this property denotes a RecordPath that will be evaluated against each incoming Record in order to determine the Kudu Operation Type. When evaluated, the " +
+                    "RecordPath must evaluate to one of hte valid Kudu Operation Types, or the incoming FlowFile will be routed to failure. If this property is specified, the <Kudu Operation Type> property" +
+                    " will be ignored.")
+            .required(false)
+            .addValidator(new RecordPathValidator())
+            .expressionLanguageSupported(NONE)
+            .build();
+    static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
+            .name("kudu-column-timestamp-patterns")
+            .displayName("Apply Custom Column Timestamp Patterns (JSON)")
+            .description("Timestamp 컬럼에 Timestamp Format을 별도로 지정할 수 있습니다.")
+            .required(false)
+            .addValidator(JsonValidator)
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .build();
     // Properties set in onScheduled.
     private volatile int batchSize = 100;
     private volatile int ffbatch = 1;

@@ -162,634 +162,6 @@ import java.util.Set;
 public final class CSVFormat implements Serializable {
 
     /**
-     * Builds CSVFormat instances.
-     *
-     * @since 1.9.0
-     */
-    public static class Builder {
-
-        /**
-         * Creates a new default builder.
-         *
-         * @return a copy of the builder
-         */
-        public static Builder create() {
-            return new Builder(CSVFormat.DEFAULT);
-        }
-
-        /**
-         * Creates a new builder for the given format.
-         *
-         * @param csvFormat the source format.
-         * @return a copy of the builder
-         */
-        public static Builder create(final CSVFormat csvFormat) {
-            return new Builder(csvFormat);
-        }
-
-        private boolean allowMissingColumnNames;
-
-        private boolean autoFlush;
-
-        private Character commentMarker;
-
-        private String delimiter;
-
-        private DuplicateHeaderMode duplicateHeaderMode;
-
-        private Character escapeCharacter;
-
-        private String[] headerComments;
-
-        private String[] headers;
-
-        private boolean ignoreEmptyLines;
-
-        private boolean ignoreHeaderCase;
-
-        private boolean ignoreSurroundingSpaces;
-
-        private String nullString;
-
-        private Character quoteCharacter;
-
-        private String quotedNullString;
-
-        private QuoteMode quoteMode;
-
-        private String recordSeparator;
-
-        private boolean skipHeaderRecord;
-
-        private boolean trailingDelimiter;
-
-        private boolean trim;
-
-        private int fieldCount = -1;
-
-        private boolean validateFieldCount = false;
-
-        private Builder(final CSVFormat csvFormat) {
-            this.delimiter = csvFormat.delimiter;
-            this.quoteCharacter = csvFormat.quoteCharacter;
-            this.quoteMode = csvFormat.quoteMode;
-            this.commentMarker = csvFormat.commentMarker;
-            this.escapeCharacter = csvFormat.escapeCharacter;
-            this.ignoreSurroundingSpaces = csvFormat.ignoreSurroundingSpaces;
-            this.allowMissingColumnNames = csvFormat.allowMissingColumnNames;
-            this.ignoreEmptyLines = csvFormat.ignoreEmptyLines;
-            this.recordSeparator = csvFormat.recordSeparator;
-            this.nullString = csvFormat.nullString;
-            this.headerComments = csvFormat.headerComments;
-            this.headers = csvFormat.headers;
-            this.skipHeaderRecord = csvFormat.skipHeaderRecord;
-            this.ignoreHeaderCase = csvFormat.ignoreHeaderCase;
-            this.trailingDelimiter = csvFormat.trailingDelimiter;
-            this.trim = csvFormat.trim;
-            this.autoFlush = csvFormat.autoFlush;
-            this.quotedNullString = csvFormat.quotedNullString;
-            this.duplicateHeaderMode = csvFormat.duplicateHeaderMode;
-            this.fieldCount = csvFormat.fieldCount;
-            this.validateFieldCount = csvFormat.validateFieldCount;
-        }
-
-        /**
-         * Builds a new CSVFormat instance.
-         *
-         * @return a new CSVFormat instance.
-         */
-        public CSVFormat build() {
-            return new CSVFormat(this);
-        }
-
-        /**
-         * Sets the duplicate header names behavior, true to allow, false to disallow.
-         *
-         * @param allowDuplicateHeaderNames the duplicate header names behavior, true to allow, false to disallow.
-         * @return This instance.
-         * @deprecated Use {@link #setDuplicateHeaderMode(DuplicateHeaderMode)}.
-         */
-        @Deprecated
-        public Builder setAllowDuplicateHeaderNames(final boolean allowDuplicateHeaderNames) {
-            setDuplicateHeaderMode(allowDuplicateHeaderNames ? DuplicateHeaderMode.ALLOW_ALL : DuplicateHeaderMode.ALLOW_EMPTY);
-            return this;
-        }
-
-        /**
-         * Sets the parser missing column names behavior, {@code true} to allow missing column names in the header line, {@code false} to cause an
-         * {@link IllegalArgumentException} to be thrown.
-         *
-         * @param allowMissingColumnNames the missing column names behavior, {@code true} to allow missing column names in the header line, {@code false} to
-         *                                cause an {@link IllegalArgumentException} to be thrown.
-         * @return This instance.
-         */
-        public Builder setAllowMissingColumnNames(final boolean allowMissingColumnNames) {
-            this.allowMissingColumnNames = allowMissingColumnNames;
-            return this;
-        }
-
-        /**
-         * Sets whether to flush on close.
-         *
-         * @param autoFlush whether to flush on close.
-         * @return This instance.
-         */
-        public Builder setAutoFlush(final boolean autoFlush) {
-            this.autoFlush = autoFlush;
-            return this;
-        }
-
-        /**
-         * Sets the comment start marker, use {@code null} to disable.
-         * <p>
-         * Note that the comment start character is only recognized at the start of a line.
-         *
-         * @param commentMarker the comment start marker, use {@code null} to disable.
-         * @return This instance.
-         * @throws IllegalArgumentException thrown if the specified character is a line break
-         */
-        public Builder setCommentMarker(final char commentMarker) {
-            setCommentMarker(Character.valueOf(commentMarker));
-            return this;
-        }
-
-        /**
-         * Sets the comment start marker, use {@code null} to disable.
-         * <p>
-         * Note that the comment start character is only recognized at the start of a line.
-         *
-         * @param commentMarker the comment start marker, use {@code null} to disable.
-         * @return This instance.
-         * @throws IllegalArgumentException thrown if the specified character is a line break
-         */
-        public Builder setCommentMarker(final Character commentMarker) {
-            if (isLineBreak(commentMarker)) {
-                throw new IllegalArgumentException("The comment start marker character cannot be a line break");
-            }
-            this.commentMarker = commentMarker;
-            return this;
-        }
-
-        /**
-         * Sets the delimiter character.
-         *
-         * @param delimiter the delimiter character.
-         * @return This instance.
-         */
-        public Builder setDelimiter(final char delimiter) {
-            return setDelimiter(String.valueOf(delimiter));
-        }
-
-        /**
-         * Sets the delimiter character.
-         *
-         * @param delimiter the delimiter character.
-         * @return This instance.
-         */
-        public Builder setDelimiter(final String delimiter) {
-            if (containsLineBreak(delimiter)) {
-                throw new IllegalArgumentException("The delimiter cannot be a line break");
-            }
-            if (delimiter.isEmpty()) {
-                throw new IllegalArgumentException("The delimiter cannot be empty");
-            }
-            this.delimiter = delimiter;
-            return this;
-        }
-
-        /**
-         * Sets the duplicate header names behavior.
-         *
-         * @param duplicateHeaderMode the duplicate header names behavior
-         * @return This instance.
-         * @since 1.10.0
-         */
-        public Builder setDuplicateHeaderMode(final DuplicateHeaderMode duplicateHeaderMode) {
-            this.duplicateHeaderMode = Objects.requireNonNull(duplicateHeaderMode, "duplicateHeaderMode");
-            return this;
-        }
-
-        /**
-         * Sets the escape character.
-         *
-         * @param escapeCharacter the escape character.
-         * @return This instance.
-         * @throws IllegalArgumentException thrown if the specified character is a line break
-         */
-        public Builder setEscape(final char escapeCharacter) {
-            setEscape(Character.valueOf(escapeCharacter));
-            return this;
-        }
-
-        /**
-         * Sets the escape character.
-         *
-         * @param escapeCharacter the escape character.
-         * @return This instance.
-         * @throws IllegalArgumentException thrown if the specified character is a line break
-         */
-        public Builder setEscape(final Character escapeCharacter) {
-            if (isLineBreak(escapeCharacter)) {
-                throw new IllegalArgumentException("The escape character cannot be a line break");
-            }
-            this.escapeCharacter = escapeCharacter;
-            return this;
-        }
-
-        /**
-         * Sets the header defined by the given {@link Enum} class.
-         *
-         * <p>
-         * Example:
-         * </p>
-         *
-         * <pre>
-         * public enum HeaderEnum {
-         *     Name, Email, Phone
-         * }
-         *
-         * Builder builder = builder.setHeader(HeaderEnum.class);
-         * </pre>
-         * <p>
-         * The header is also used by the {@link CSVPrinter}.
-         * </p>
-         *
-         * @param headerEnum the enum defining the header, {@code null} if disabled, empty if parsed automatically, user specified otherwise.
-         * @return This instance.
-         */
-        public Builder setHeader(final Class<? extends Enum<?>> headerEnum) {
-            String[] header = null;
-            if (headerEnum != null) {
-                final Enum<?>[] enumValues = headerEnum.getEnumConstants();
-                header = new String[enumValues.length];
-                Arrays.setAll(header, i -> enumValues[i].name());
-            }
-            return setHeader(header);
-        }
-
-        /**
-         * Sets the header from the result set metadata. The header can either be parsed automatically from the input file with:
-         *
-         * <pre>
-         * builder.setHeader();
-         * </pre>
-         * <p>
-         * or specified manually with:
-         *
-         * <pre>
-         * builder.setHeader(resultSet);
-         * </pre>
-         * <p>
-         * The header is also used by the {@link CSVPrinter}.
-         * </p>
-         *
-         * @param resultSet the resultSet for the header, {@code null} if disabled, empty if parsed automatically, user specified otherwise.
-         * @return This instance.
-         * @throws SQLException SQLException if a database access error occurs or this method is called on a closed result set.
-         */
-        public Builder setHeader(final ResultSet resultSet) throws SQLException {
-            return setHeader(resultSet != null ? resultSet.getMetaData() : null);
-        }
-
-        /**
-         * Sets the header from the result set metadata. The header can either be parsed automatically from the input file with:
-         *
-         * <pre>
-         * builder.setHeader();
-         * </pre>
-         * <p>
-         * or specified manually with:
-         *
-         * <pre>
-         * builder.setHeader(resultSetMetaData);
-         * </pre>
-         * <p>
-         * The header is also used by the {@link CSVPrinter}.
-         * </p>
-         *
-         * @param resultSetMetaData the metaData for the header, {@code null} if disabled, empty if parsed automatically, user specified otherwise.
-         * @return This instance.
-         * @throws SQLException SQLException if a database access error occurs or this method is called on a closed result set.
-         */
-        public Builder setHeader(final ResultSetMetaData resultSetMetaData) throws SQLException {
-            String[] labels = null;
-            if (resultSetMetaData != null) {
-                final int columnCount = resultSetMetaData.getColumnCount();
-                labels = new String[columnCount];
-                for (int i = 0; i < columnCount; i++) {
-                    labels[i] = resultSetMetaData.getColumnLabel(i + 1);
-                }
-            }
-            return setHeader(labels);
-        }
-
-        /**
-         * Sets the header to the given values. The header can either be parsed automatically from the input file with:
-         *
-         * <pre>
-         * builder.setHeader();
-         * </pre>
-         * <p>
-         * or specified manually with:
-         *
-         * <pre>
-         * builder.setHeader(&quot;name&quot;, &quot;email&quot;, &quot;phone&quot;);
-         * </pre>
-         * <p>
-         * The header is also used by the {@link CSVPrinter}.
-         * </p>
-         *
-         * @param header the header, {@code null} if disabled, empty if parsed automatically, user specified otherwise.
-         * @return This instance.
-         */
-        public Builder setHeader(final String... header) {
-            this.headers = CSVFormat.clone(header);
-            return this;
-        }
-
-        /**
-         * Sets the header comments set to the given values. The comments will be printed first, before the headers. This setting is ignored by the parser.
-         *
-         * <pre>
-         * builder.setHeaderComments(&quot;Generated by Apache Commons CSV.&quot;, Instant.now());
-         * </pre>
-         *
-         * @param headerComments the headerComments which will be printed by the Printer before the actual CSV data.
-         * @return This instance.
-         */
-        public Builder setHeaderComments(final Object... headerComments) {
-            this.headerComments = CSVFormat.clone(toStringArray(headerComments));
-            return this;
-        }
-
-        /**
-         * Sets the header comments set to the given values. The comments will be printed first, before the headers. This setting is ignored by the parser.
-         *
-         * <pre>
-         * Builder.setHeaderComments(&quot;Generated by Apache Commons CSV.&quot;, Instant.now());
-         * </pre>
-         *
-         * @param headerComments the headerComments which will be printed by the Printer before the actual CSV data.
-         * @return This instance.
-         */
-        public Builder setHeaderComments(final String... headerComments) {
-            this.headerComments = CSVFormat.clone(headerComments);
-            return this;
-        }
-
-        /**
-         * Sets the empty line skipping behavior, {@code true} to ignore the empty lines between the records, {@code false} to translate empty lines to empty
-         * records.
-         *
-         * @param ignoreEmptyLines the empty line skipping behavior, {@code true} to ignore the empty lines between the records, {@code false} to translate
-         *                         empty lines to empty records.
-         * @return This instance.
-         */
-        public Builder setIgnoreEmptyLines(final boolean ignoreEmptyLines) {
-            this.ignoreEmptyLines = ignoreEmptyLines;
-            return this;
-        }
-
-        /**
-         * Sets the parser case mapping behavior, {@code true} to access name/values, {@code false} to leave the mapping as is.
-         *
-         * @param ignoreHeaderCase the case mapping behavior, {@code true} to access name/values, {@code false} to leave the mapping as is.
-         * @return This instance.
-         */
-        public Builder setIgnoreHeaderCase(final boolean ignoreHeaderCase) {
-            this.ignoreHeaderCase = ignoreHeaderCase;
-            return this;
-        }
-
-        /**
-         * Sets the parser trimming behavior, {@code true} to remove the surrounding spaces, {@code false} to leave the spaces as is.
-         *
-         * @param ignoreSurroundingSpaces the parser trimming behavior, {@code true} to remove the surrounding spaces, {@code false} to leave the spaces as is.
-         * @return This instance.
-         */
-        public Builder setIgnoreSurroundingSpaces(final boolean ignoreSurroundingSpaces) {
-            this.ignoreSurroundingSpaces = ignoreSurroundingSpaces;
-            return this;
-        }
-
-        /**
-         * Sets the String to convert to and from {@code null}. No substitution occurs if {@code null}.
-         *
-         * <ul>
-         * <li><strong>Reading:</strong> Converts strings equal to the given {@code nullString} to {@code null} when reading records.</li>
-         * <li><strong>Writing:</strong> Writes {@code null} as the given {@code nullString} when writing records.</li>
-         * </ul>
-         *
-         * @param nullString the String to convert to and from {@code null}. No substitution occurs if {@code null}.
-         * @return This instance.
-         */
-        public Builder setNullString(final String nullString) {
-            this.nullString = nullString;
-            this.quotedNullString = quoteCharacter + nullString + quoteCharacter;
-            return this;
-        }
-
-        /**
-         * Sets the quote character.
-         *
-         * @param quoteCharacter the quote character.
-         * @return This instance.
-         */
-        public Builder setQuote(final char quoteCharacter) {
-            setQuote(Character.valueOf(quoteCharacter));
-            return this;
-        }
-
-        /**
-         * Sets the quote character, use {@code null} to disable.
-         *
-         * @param quoteCharacter the quote character, use {@code null} to disable.
-         * @return This instance.
-         */
-        public Builder setQuote(final Character quoteCharacter) {
-            if (isLineBreak(quoteCharacter)) {
-                throw new IllegalArgumentException("The quoteChar cannot be a line break");
-            }
-            this.quoteCharacter = quoteCharacter;
-            return this;
-        }
-
-        /**
-         * Sets the quote policy to use for output.
-         *
-         * @param quoteMode the quote policy to use for output.
-         * @return This instance.
-         */
-        public Builder setQuoteMode(final QuoteMode quoteMode) {
-            this.quoteMode = quoteMode;
-            return this;
-        }
-
-        /**
-         * Sets the record separator to use for output.
-         *
-         * <p>
-         * <strong>Note:</strong> This setting is only used during printing and does not affect parsing. Parsing currently only works for inputs with '\n', '\r'
-         * and "\r\n"
-         * </p>
-         *
-         * @param recordSeparator the record separator to use for output.
-         * @return This instance.
-         */
-        public Builder setRecordSeparator(final char recordSeparator) {
-            this.recordSeparator = String.valueOf(recordSeparator);
-            return this;
-        }
-
-        /**
-         * Sets the record separator to use for output.
-         *
-         * <p>
-         * <strong>Note:</strong> This setting is only used during printing and does not affect parsing. Parsing currently only works for inputs with '\n', '\r'
-         * and "\r\n"
-         * </p>
-         *
-         * @param recordSeparator the record separator to use for output.
-         * @return This instance.
-         */
-        public Builder setRecordSeparator(final String recordSeparator) {
-            this.recordSeparator = recordSeparator;
-            return this;
-        }
-
-        /**
-         * Sets whether to skip the header record.
-         *
-         * @param skipHeaderRecord whether to skip the header record.
-         * @return This instance.
-         */
-        public Builder setSkipHeaderRecord(final boolean skipHeaderRecord) {
-            this.skipHeaderRecord = skipHeaderRecord;
-            return this;
-        }
-
-        /**
-         * Sets whether to add a trailing delimiter.
-         *
-         * @param trailingDelimiter whether to add a trailing delimiter.
-         * @return This instance.
-         */
-        public Builder setTrailingDelimiter(final boolean trailingDelimiter) {
-            this.trailingDelimiter = trailingDelimiter;
-            return this;
-        }
-
-        /**
-         * Sets whether to trim leading and trailing blanks.
-         *
-         * @param trim whether to trim leading and trailing blanks.
-         * @return This instance.
-         */
-        public Builder setTrim(final boolean trim) {
-            this.trim = trim;
-            return this;
-        }
-
-        public Builder setFieldCount(int fieldCount) {
-            this.fieldCount = fieldCount;
-            return this;
-        }
-
-        public Builder setValidateFieldCount(boolean validateFieldCount) {
-            this.validateFieldCount = validateFieldCount;
-            return this;
-        }
-    }
-
-    /**
-     * Predefines formats.
-     *
-     * @since 1.2
-     */
-    public enum Predefined {
-
-        /**
-         * @see CSVFormat#DEFAULT
-         */
-        Default(CSVFormat.DEFAULT),
-
-        /**
-         * @see CSVFormat#EXCEL
-         */
-        Excel(CSVFormat.EXCEL),
-
-        /**
-         * @see CSVFormat#INFORMIX_UNLOAD
-         * @since 1.3
-         */
-        InformixUnload(CSVFormat.INFORMIX_UNLOAD),
-
-        /**
-         * @see CSVFormat#INFORMIX_UNLOAD_CSV
-         * @since 1.3
-         */
-        InformixUnloadCsv(CSVFormat.INFORMIX_UNLOAD_CSV),
-
-        /**
-         * @see CSVFormat#MONGODB_CSV
-         * @since 1.7
-         */
-        MongoDBCsv(CSVFormat.MONGODB_CSV),
-
-        /**
-         * @see CSVFormat#MONGODB_TSV
-         * @since 1.7
-         */
-        MongoDBTsv(CSVFormat.MONGODB_TSV),
-
-        /**
-         * @see CSVFormat#MYSQL
-         */
-        MySQL(CSVFormat.MYSQL),
-
-        /**
-         * @see CSVFormat#ORACLE
-         */
-        Oracle(CSVFormat.ORACLE),
-
-        /**
-         * @see CSVFormat#POSTGRESQL_CSV
-         * @since 1.5
-         */
-        PostgreSQLCsv(CSVFormat.POSTGRESQL_CSV),
-
-        /**
-         * @see CSVFormat#POSTGRESQL_CSV
-         */
-        PostgreSQLText(CSVFormat.POSTGRESQL_TEXT),
-
-        /**
-         * @see CSVFormat#RFC4180
-         */
-        RFC4180(CSVFormat.RFC4180),
-
-        /**
-         * @see CSVFormat#TDF
-         */
-        TDF(CSVFormat.TDF);
-
-        private final CSVFormat format;
-
-        Predefined(final CSVFormat format) {
-            this.format = format;
-        }
-
-        /**
-         * Gets the format.
-         *
-         * @return the format.
-         */
-        public CSVFormat getFormat() {
-            return format;
-        }
-    }
-
-    /**
      * Standard Comma Separated Value format, as for {@link #RFC4180} but allowing
      * empty lines.
      *
@@ -808,7 +180,6 @@ public final class CSVFormat implements Serializable {
      */
     public static final CSVFormat DEFAULT = new CSVFormat(Constants.COMMA, Constants.DOUBLE_QUOTE_CHAR, null, null, null, false, true, Constants.CRLF, null, null, null, false, false, false,
             false, false, false, DuplicateHeaderMode.ALLOW_ALL, -1, false);
-
     /**
      * Excel file format (using a comma as the value delimiter). Note that the actual value delimiter used by Excel is locale dependent, it might be necessary
      * to customize this format to accommodate to your regional settings.
@@ -844,8 +215,6 @@ public final class CSVFormat implements Serializable {
             .setIgnoreEmptyLines(false)
             .setAllowMissingColumnNames(true)
             .build();
-    // @formatter:on
-
     /**
      * Default Informix CSV UNLOAD format used by the {@code UNLOAD TO file_name} operation.
      *
@@ -876,8 +245,6 @@ public final class CSVFormat implements Serializable {
             .setQuote(Constants.DOUBLE_QUOTE_CHAR)
             .setRecordSeparator(Constants.LF)
             .build();
-    // @formatter:on
-
     /**
      * Default Informix CSV UNLOAD format used by the {@code UNLOAD TO file_name} operation (escaping is disabled.)
      *
@@ -907,7 +274,6 @@ public final class CSVFormat implements Serializable {
             .setRecordSeparator(Constants.LF)
             .build();
     // @formatter:on
-
     /**
      * Default MongoDB CSV format used by the {@code mongoexport} operation.
      * <p>
@@ -942,8 +308,7 @@ public final class CSVFormat implements Serializable {
             .setQuoteMode(QuoteMode.MINIMAL)
             .setSkipHeaderRecord(false)
             .build();
-    // @formatter:off
-
+    // @formatter:on
     /**
      * Default MongoDB TSV format used by the {@code mongoexport} operation.
      * <p>
@@ -979,8 +344,7 @@ public final class CSVFormat implements Serializable {
             .setQuoteMode(QuoteMode.MINIMAL)
             .setSkipHeaderRecord(false)
             .build();
-    // @formatter:off
-
+    // @formatter:on
     /**
      * Default MySQL format used by the {@code SELECT INTO OUTFILE} and {@code LOAD DATA INFILE} operations.
      *
@@ -1017,7 +381,6 @@ public final class CSVFormat implements Serializable {
             .setQuoteMode(QuoteMode.ALL_NON_NULL)
             .build();
     // @formatter:off
-
     /**
      * Default Oracle format used by the SQL*Loader utility.
      *
@@ -1057,7 +420,6 @@ public final class CSVFormat implements Serializable {
             .setQuoteMode(QuoteMode.MINIMAL)
             .build();
     // @formatter:off
-
     /**
      * Default PostgreSQL CSV format used by the {@code COPY} operation.
      *
@@ -1095,7 +457,6 @@ public final class CSVFormat implements Serializable {
             .setQuoteMode(QuoteMode.ALL_NON_NULL)
             .build();
     // @formatter:off
-
     /**
      * Default PostgreSQL text format used by the {@code COPY} operation.
      *
@@ -1133,7 +494,6 @@ public final class CSVFormat implements Serializable {
             .setQuoteMode(QuoteMode.ALL_NON_NULL)
             .build();
     // @formatter:off
-
     /**
      * Comma separated format as defined by <a href="http://tools.ietf.org/html/rfc4180">RFC 4180</a>.
      *
@@ -1150,9 +510,7 @@ public final class CSVFormat implements Serializable {
      * @see Predefined#RFC4180
      */
     public static final CSVFormat RFC4180 = DEFAULT.builder().setIgnoreEmptyLines(false).build();
-
-    private static final long serialVersionUID = 2L;
-
+    // @formatter:off
     /**
      * Tab-delimited format.
      *
@@ -1173,7 +531,109 @@ public final class CSVFormat implements Serializable {
             .setDelimiter(Constants.TAB)
             .setIgnoreSurroundingSpaces(true)
             .build();
+    // @formatter:off
+    private static final long serialVersionUID = 2L;
+    private final DuplicateHeaderMode duplicateHeaderMode;
+    private final boolean allowMissingColumnNames;
     // @formatter:on
+    private final boolean autoFlush;
+    private final Character commentMarker; // null if commenting is disabled
+    private final String delimiter;
+    private final Character escapeCharacter; // null if escaping is disabled
+    private final String[] headers; // array of header column names
+    private final String[] headerComments; // array of header comment lines
+    private final boolean ignoreEmptyLines;
+    private final boolean ignoreHeaderCase; // should ignore header names case
+    private final boolean ignoreSurroundingSpaces; // Should leading/trailing spaces be ignored around values?
+    private final String nullString; // the string to be used for null values
+    private final Character quoteCharacter; // null if quoting is disabled
+    private final String quotedNullString;
+    private final QuoteMode quoteMode;
+    private final String recordSeparator; // for outputs
+    private final boolean skipHeaderRecord;
+    private final boolean trailingDelimiter;
+    private final boolean trim;
+    private final int fieldCount;
+    private final boolean validateFieldCount;
+
+    private CSVFormat(final Builder builder) {
+        this.delimiter = builder.delimiter;
+        this.quoteCharacter = builder.quoteCharacter;
+        this.quoteMode = builder.quoteMode;
+        this.commentMarker = builder.commentMarker;
+        this.escapeCharacter = builder.escapeCharacter;
+        this.ignoreSurroundingSpaces = builder.ignoreSurroundingSpaces;
+        this.allowMissingColumnNames = builder.allowMissingColumnNames;
+        this.ignoreEmptyLines = builder.ignoreEmptyLines;
+        this.recordSeparator = builder.recordSeparator;
+        this.nullString = builder.nullString;
+        this.headerComments = builder.headerComments;
+        this.headers = builder.headers;
+        this.skipHeaderRecord = builder.skipHeaderRecord;
+        this.ignoreHeaderCase = builder.ignoreHeaderCase;
+        this.trailingDelimiter = builder.trailingDelimiter;
+        this.trim = builder.trim;
+        this.autoFlush = builder.autoFlush;
+        this.quotedNullString = builder.quotedNullString;
+        this.duplicateHeaderMode = builder.duplicateHeaderMode;
+        this.fieldCount = builder.fieldCount;
+        this.validateFieldCount = builder.validateFieldCount;
+        validate();
+    }
+
+    /**
+     * Creates a customized CSV format.
+     *
+     * @param delimiter               the char used for value separation, must not be a line break character.
+     * @param quoteChar               the Character used as value encapsulation marker, may be {@code null} to disable.
+     * @param quoteMode               the quote mode.
+     * @param commentStart            the Character used for comment identification, may be {@code null} to disable.
+     * @param escape                  the Character used to escape special characters in values, may be {@code null} to disable.
+     * @param ignoreSurroundingSpaces {@code true} when whitespaces enclosing values should be ignored.
+     * @param ignoreEmptyLines        {@code true} when the parser should skip empty lines.
+     * @param recordSeparator         the line separator to use for output.
+     * @param nullString              the line separator to use for output.
+     * @param headerComments          the comments to be printed by the Printer before the actual CSV data.
+     * @param header                  the header
+     * @param skipHeaderRecord        TODO Doc me.
+     * @param allowMissingColumnNames TODO Doc me.
+     * @param ignoreHeaderCase        TODO Doc me.
+     * @param trim                    TODO Doc me.
+     * @param trailingDelimiter       TODO Doc me.
+     * @param autoFlush               TODO Doc me.
+     * @param duplicateHeaderMode     the behavior when handling duplicate headers
+     * @throws IllegalArgumentException if the delimiter is a line break character.
+     */
+    private CSVFormat(final String delimiter, final Character quoteChar, final QuoteMode quoteMode, final Character commentStart, final Character escape,
+                      final boolean ignoreSurroundingSpaces, final boolean ignoreEmptyLines, final String recordSeparator, final String nullString,
+                      final Object[] headerComments, final String[] header, final boolean skipHeaderRecord, final boolean allowMissingColumnNames,
+                      final boolean ignoreHeaderCase, final boolean trim, final boolean trailingDelimiter, final boolean autoFlush,
+                      final DuplicateHeaderMode duplicateHeaderMode,
+                      final int fieldCount,
+                      final boolean validateFieldCount) {
+        this.delimiter = delimiter;
+        this.quoteCharacter = quoteChar;
+        this.quoteMode = quoteMode;
+        this.commentMarker = commentStart;
+        this.escapeCharacter = escape;
+        this.ignoreSurroundingSpaces = ignoreSurroundingSpaces;
+        this.allowMissingColumnNames = allowMissingColumnNames;
+        this.ignoreEmptyLines = ignoreEmptyLines;
+        this.recordSeparator = recordSeparator;
+        this.nullString = nullString;
+        this.headerComments = toStringArray(headerComments);
+        this.headers = clone(header);
+        this.skipHeaderRecord = skipHeaderRecord;
+        this.ignoreHeaderCase = ignoreHeaderCase;
+        this.trailingDelimiter = trailingDelimiter;
+        this.trim = trim;
+        this.autoFlush = autoFlush;
+        this.quotedNullString = quoteCharacter + nullString + quoteCharacter;
+        this.duplicateHeaderMode = duplicateHeaderMode;
+        this.fieldCount = fieldCount;
+        this.validateFieldCount = validateFieldCount;
+        validate();
+    }
 
     /**
      * Null-safe clone of an array.
@@ -1302,126 +762,6 @@ public final class CSVFormat implements Serializable {
      */
     public static CSVFormat valueOf(final String format) {
         return Predefined.valueOf(format).getFormat();
-    }
-
-    private final DuplicateHeaderMode duplicateHeaderMode;
-
-    private final boolean allowMissingColumnNames;
-
-    private final boolean autoFlush;
-
-    private final Character commentMarker; // null if commenting is disabled
-
-    private final String delimiter;
-
-    private final Character escapeCharacter; // null if escaping is disabled
-
-    private final String[] headers; // array of header column names
-
-    private final String[] headerComments; // array of header comment lines
-
-    private final boolean ignoreEmptyLines;
-
-    private final boolean ignoreHeaderCase; // should ignore header names case
-
-    private final boolean ignoreSurroundingSpaces; // Should leading/trailing spaces be ignored around values?
-
-    private final String nullString; // the string to be used for null values
-
-    private final Character quoteCharacter; // null if quoting is disabled
-
-    private final String quotedNullString;
-
-    private final QuoteMode quoteMode;
-
-    private final String recordSeparator; // for outputs
-
-    private final boolean skipHeaderRecord;
-
-    private final boolean trailingDelimiter;
-
-    private final boolean trim;
-    private final int fieldCount;
-
-    private final boolean validateFieldCount;
-
-    private CSVFormat(final Builder builder) {
-        this.delimiter = builder.delimiter;
-        this.quoteCharacter = builder.quoteCharacter;
-        this.quoteMode = builder.quoteMode;
-        this.commentMarker = builder.commentMarker;
-        this.escapeCharacter = builder.escapeCharacter;
-        this.ignoreSurroundingSpaces = builder.ignoreSurroundingSpaces;
-        this.allowMissingColumnNames = builder.allowMissingColumnNames;
-        this.ignoreEmptyLines = builder.ignoreEmptyLines;
-        this.recordSeparator = builder.recordSeparator;
-        this.nullString = builder.nullString;
-        this.headerComments = builder.headerComments;
-        this.headers = builder.headers;
-        this.skipHeaderRecord = builder.skipHeaderRecord;
-        this.ignoreHeaderCase = builder.ignoreHeaderCase;
-        this.trailingDelimiter = builder.trailingDelimiter;
-        this.trim = builder.trim;
-        this.autoFlush = builder.autoFlush;
-        this.quotedNullString = builder.quotedNullString;
-        this.duplicateHeaderMode = builder.duplicateHeaderMode;
-        this.fieldCount = builder.fieldCount;
-        this.validateFieldCount = builder.validateFieldCount;
-        validate();
-    }
-
-    /**
-     * Creates a customized CSV format.
-     *
-     * @param delimiter               the char used for value separation, must not be a line break character.
-     * @param quoteChar               the Character used as value encapsulation marker, may be {@code null} to disable.
-     * @param quoteMode               the quote mode.
-     * @param commentStart            the Character used for comment identification, may be {@code null} to disable.
-     * @param escape                  the Character used to escape special characters in values, may be {@code null} to disable.
-     * @param ignoreSurroundingSpaces {@code true} when whitespaces enclosing values should be ignored.
-     * @param ignoreEmptyLines        {@code true} when the parser should skip empty lines.
-     * @param recordSeparator         the line separator to use for output.
-     * @param nullString              the line separator to use for output.
-     * @param headerComments          the comments to be printed by the Printer before the actual CSV data.
-     * @param header                  the header
-     * @param skipHeaderRecord        TODO Doc me.
-     * @param allowMissingColumnNames TODO Doc me.
-     * @param ignoreHeaderCase        TODO Doc me.
-     * @param trim                    TODO Doc me.
-     * @param trailingDelimiter       TODO Doc me.
-     * @param autoFlush               TODO Doc me.
-     * @param duplicateHeaderMode     the behavior when handling duplicate headers
-     * @throws IllegalArgumentException if the delimiter is a line break character.
-     */
-    private CSVFormat(final String delimiter, final Character quoteChar, final QuoteMode quoteMode, final Character commentStart, final Character escape,
-                      final boolean ignoreSurroundingSpaces, final boolean ignoreEmptyLines, final String recordSeparator, final String nullString,
-                      final Object[] headerComments, final String[] header, final boolean skipHeaderRecord, final boolean allowMissingColumnNames,
-                      final boolean ignoreHeaderCase, final boolean trim, final boolean trailingDelimiter, final boolean autoFlush,
-                      final DuplicateHeaderMode duplicateHeaderMode,
-                      final int fieldCount,
-                      final boolean validateFieldCount) {
-        this.delimiter = delimiter;
-        this.quoteCharacter = quoteChar;
-        this.quoteMode = quoteMode;
-        this.commentMarker = commentStart;
-        this.escapeCharacter = escape;
-        this.ignoreSurroundingSpaces = ignoreSurroundingSpaces;
-        this.allowMissingColumnNames = allowMissingColumnNames;
-        this.ignoreEmptyLines = ignoreEmptyLines;
-        this.recordSeparator = recordSeparator;
-        this.nullString = nullString;
-        this.headerComments = toStringArray(headerComments);
-        this.headers = clone(header);
-        this.skipHeaderRecord = skipHeaderRecord;
-        this.ignoreHeaderCase = ignoreHeaderCase;
-        this.trailingDelimiter = trailingDelimiter;
-        this.trim = trim;
-        this.autoFlush = autoFlush;
-        this.quotedNullString = quoteCharacter + nullString + quoteCharacter;
-        this.duplicateHeaderMode = duplicateHeaderMode;
-        this.fieldCount = fieldCount;
-        this.validateFieldCount = validateFieldCount;
-        validate();
     }
 
     private void append(final char c, final Appendable appendable) throws IOException {
@@ -2895,5 +2235,613 @@ public final class CSVFormat implements Serializable {
     @Deprecated
     public CSVFormat withTrim(final boolean trim) {
         return builder().setTrim(trim).build();
+    }
+
+    /**
+     * Predefines formats.
+     *
+     * @since 1.2
+     */
+    public enum Predefined {
+
+        /**
+         * @see CSVFormat#DEFAULT
+         */
+        Default(CSVFormat.DEFAULT),
+
+        /**
+         * @see CSVFormat#EXCEL
+         */
+        Excel(CSVFormat.EXCEL),
+
+        /**
+         * @see CSVFormat#INFORMIX_UNLOAD
+         * @since 1.3
+         */
+        InformixUnload(CSVFormat.INFORMIX_UNLOAD),
+
+        /**
+         * @see CSVFormat#INFORMIX_UNLOAD_CSV
+         * @since 1.3
+         */
+        InformixUnloadCsv(CSVFormat.INFORMIX_UNLOAD_CSV),
+
+        /**
+         * @see CSVFormat#MONGODB_CSV
+         * @since 1.7
+         */
+        MongoDBCsv(CSVFormat.MONGODB_CSV),
+
+        /**
+         * @see CSVFormat#MONGODB_TSV
+         * @since 1.7
+         */
+        MongoDBTsv(CSVFormat.MONGODB_TSV),
+
+        /**
+         * @see CSVFormat#MYSQL
+         */
+        MySQL(CSVFormat.MYSQL),
+
+        /**
+         * @see CSVFormat#ORACLE
+         */
+        Oracle(CSVFormat.ORACLE),
+
+        /**
+         * @see CSVFormat#POSTGRESQL_CSV
+         * @since 1.5
+         */
+        PostgreSQLCsv(CSVFormat.POSTGRESQL_CSV),
+
+        /**
+         * @see CSVFormat#POSTGRESQL_CSV
+         */
+        PostgreSQLText(CSVFormat.POSTGRESQL_TEXT),
+
+        /**
+         * @see CSVFormat#RFC4180
+         */
+        RFC4180(CSVFormat.RFC4180),
+
+        /**
+         * @see CSVFormat#TDF
+         */
+        TDF(CSVFormat.TDF);
+
+        private final CSVFormat format;
+
+        Predefined(final CSVFormat format) {
+            this.format = format;
+        }
+
+        /**
+         * Gets the format.
+         *
+         * @return the format.
+         */
+        public CSVFormat getFormat() {
+            return format;
+        }
+    }
+
+    /**
+     * Builds CSVFormat instances.
+     *
+     * @since 1.9.0
+     */
+    public static class Builder {
+
+        private boolean allowMissingColumnNames;
+        private boolean autoFlush;
+        private Character commentMarker;
+        private String delimiter;
+        private DuplicateHeaderMode duplicateHeaderMode;
+        private Character escapeCharacter;
+        private String[] headerComments;
+        private String[] headers;
+        private boolean ignoreEmptyLines;
+        private boolean ignoreHeaderCase;
+        private boolean ignoreSurroundingSpaces;
+        private String nullString;
+        private Character quoteCharacter;
+        private String quotedNullString;
+        private QuoteMode quoteMode;
+        private String recordSeparator;
+        private boolean skipHeaderRecord;
+        private boolean trailingDelimiter;
+        private boolean trim;
+        private int fieldCount = -1;
+        private boolean validateFieldCount = false;
+
+        private Builder(final CSVFormat csvFormat) {
+            this.delimiter = csvFormat.delimiter;
+            this.quoteCharacter = csvFormat.quoteCharacter;
+            this.quoteMode = csvFormat.quoteMode;
+            this.commentMarker = csvFormat.commentMarker;
+            this.escapeCharacter = csvFormat.escapeCharacter;
+            this.ignoreSurroundingSpaces = csvFormat.ignoreSurroundingSpaces;
+            this.allowMissingColumnNames = csvFormat.allowMissingColumnNames;
+            this.ignoreEmptyLines = csvFormat.ignoreEmptyLines;
+            this.recordSeparator = csvFormat.recordSeparator;
+            this.nullString = csvFormat.nullString;
+            this.headerComments = csvFormat.headerComments;
+            this.headers = csvFormat.headers;
+            this.skipHeaderRecord = csvFormat.skipHeaderRecord;
+            this.ignoreHeaderCase = csvFormat.ignoreHeaderCase;
+            this.trailingDelimiter = csvFormat.trailingDelimiter;
+            this.trim = csvFormat.trim;
+            this.autoFlush = csvFormat.autoFlush;
+            this.quotedNullString = csvFormat.quotedNullString;
+            this.duplicateHeaderMode = csvFormat.duplicateHeaderMode;
+            this.fieldCount = csvFormat.fieldCount;
+            this.validateFieldCount = csvFormat.validateFieldCount;
+        }
+
+        /**
+         * Creates a new default builder.
+         *
+         * @return a copy of the builder
+         */
+        public static Builder create() {
+            return new Builder(CSVFormat.DEFAULT);
+        }
+
+        /**
+         * Creates a new builder for the given format.
+         *
+         * @param csvFormat the source format.
+         * @return a copy of the builder
+         */
+        public static Builder create(final CSVFormat csvFormat) {
+            return new Builder(csvFormat);
+        }
+
+        /**
+         * Builds a new CSVFormat instance.
+         *
+         * @return a new CSVFormat instance.
+         */
+        public CSVFormat build() {
+            return new CSVFormat(this);
+        }
+
+        /**
+         * Sets the duplicate header names behavior, true to allow, false to disallow.
+         *
+         * @param allowDuplicateHeaderNames the duplicate header names behavior, true to allow, false to disallow.
+         * @return This instance.
+         * @deprecated Use {@link #setDuplicateHeaderMode(DuplicateHeaderMode)}.
+         */
+        @Deprecated
+        public Builder setAllowDuplicateHeaderNames(final boolean allowDuplicateHeaderNames) {
+            setDuplicateHeaderMode(allowDuplicateHeaderNames ? DuplicateHeaderMode.ALLOW_ALL : DuplicateHeaderMode.ALLOW_EMPTY);
+            return this;
+        }
+
+        /**
+         * Sets the parser missing column names behavior, {@code true} to allow missing column names in the header line, {@code false} to cause an
+         * {@link IllegalArgumentException} to be thrown.
+         *
+         * @param allowMissingColumnNames the missing column names behavior, {@code true} to allow missing column names in the header line, {@code false} to
+         *                                cause an {@link IllegalArgumentException} to be thrown.
+         * @return This instance.
+         */
+        public Builder setAllowMissingColumnNames(final boolean allowMissingColumnNames) {
+            this.allowMissingColumnNames = allowMissingColumnNames;
+            return this;
+        }
+
+        /**
+         * Sets whether to flush on close.
+         *
+         * @param autoFlush whether to flush on close.
+         * @return This instance.
+         */
+        public Builder setAutoFlush(final boolean autoFlush) {
+            this.autoFlush = autoFlush;
+            return this;
+        }
+
+        /**
+         * Sets the comment start marker, use {@code null} to disable.
+         * <p>
+         * Note that the comment start character is only recognized at the start of a line.
+         *
+         * @param commentMarker the comment start marker, use {@code null} to disable.
+         * @return This instance.
+         * @throws IllegalArgumentException thrown if the specified character is a line break
+         */
+        public Builder setCommentMarker(final char commentMarker) {
+            setCommentMarker(Character.valueOf(commentMarker));
+            return this;
+        }
+
+        /**
+         * Sets the comment start marker, use {@code null} to disable.
+         * <p>
+         * Note that the comment start character is only recognized at the start of a line.
+         *
+         * @param commentMarker the comment start marker, use {@code null} to disable.
+         * @return This instance.
+         * @throws IllegalArgumentException thrown if the specified character is a line break
+         */
+        public Builder setCommentMarker(final Character commentMarker) {
+            if (isLineBreak(commentMarker)) {
+                throw new IllegalArgumentException("The comment start marker character cannot be a line break");
+            }
+            this.commentMarker = commentMarker;
+            return this;
+        }
+
+        /**
+         * Sets the delimiter character.
+         *
+         * @param delimiter the delimiter character.
+         * @return This instance.
+         */
+        public Builder setDelimiter(final char delimiter) {
+            return setDelimiter(String.valueOf(delimiter));
+        }
+
+        /**
+         * Sets the delimiter character.
+         *
+         * @param delimiter the delimiter character.
+         * @return This instance.
+         */
+        public Builder setDelimiter(final String delimiter) {
+            if (containsLineBreak(delimiter)) {
+                throw new IllegalArgumentException("The delimiter cannot be a line break");
+            }
+            if (delimiter.isEmpty()) {
+                throw new IllegalArgumentException("The delimiter cannot be empty");
+            }
+            this.delimiter = delimiter;
+            return this;
+        }
+
+        /**
+         * Sets the duplicate header names behavior.
+         *
+         * @param duplicateHeaderMode the duplicate header names behavior
+         * @return This instance.
+         * @since 1.10.0
+         */
+        public Builder setDuplicateHeaderMode(final DuplicateHeaderMode duplicateHeaderMode) {
+            this.duplicateHeaderMode = Objects.requireNonNull(duplicateHeaderMode, "duplicateHeaderMode");
+            return this;
+        }
+
+        /**
+         * Sets the escape character.
+         *
+         * @param escapeCharacter the escape character.
+         * @return This instance.
+         * @throws IllegalArgumentException thrown if the specified character is a line break
+         */
+        public Builder setEscape(final char escapeCharacter) {
+            setEscape(Character.valueOf(escapeCharacter));
+            return this;
+        }
+
+        /**
+         * Sets the escape character.
+         *
+         * @param escapeCharacter the escape character.
+         * @return This instance.
+         * @throws IllegalArgumentException thrown if the specified character is a line break
+         */
+        public Builder setEscape(final Character escapeCharacter) {
+            if (isLineBreak(escapeCharacter)) {
+                throw new IllegalArgumentException("The escape character cannot be a line break");
+            }
+            this.escapeCharacter = escapeCharacter;
+            return this;
+        }
+
+        /**
+         * Sets the header defined by the given {@link Enum} class.
+         *
+         * <p>
+         * Example:
+         * </p>
+         *
+         * <pre>
+         * public enum HeaderEnum {
+         *     Name, Email, Phone
+         * }
+         *
+         * Builder builder = builder.setHeader(HeaderEnum.class);
+         * </pre>
+         * <p>
+         * The header is also used by the {@link CSVPrinter}.
+         * </p>
+         *
+         * @param headerEnum the enum defining the header, {@code null} if disabled, empty if parsed automatically, user specified otherwise.
+         * @return This instance.
+         */
+        public Builder setHeader(final Class<? extends Enum<?>> headerEnum) {
+            String[] header = null;
+            if (headerEnum != null) {
+                final Enum<?>[] enumValues = headerEnum.getEnumConstants();
+                header = new String[enumValues.length];
+                Arrays.setAll(header, i -> enumValues[i].name());
+            }
+            return setHeader(header);
+        }
+
+        /**
+         * Sets the header from the result set metadata. The header can either be parsed automatically from the input file with:
+         *
+         * <pre>
+         * builder.setHeader();
+         * </pre>
+         * <p>
+         * or specified manually with:
+         *
+         * <pre>
+         * builder.setHeader(resultSet);
+         * </pre>
+         * <p>
+         * The header is also used by the {@link CSVPrinter}.
+         * </p>
+         *
+         * @param resultSet the resultSet for the header, {@code null} if disabled, empty if parsed automatically, user specified otherwise.
+         * @return This instance.
+         * @throws SQLException SQLException if a database access error occurs or this method is called on a closed result set.
+         */
+        public Builder setHeader(final ResultSet resultSet) throws SQLException {
+            return setHeader(resultSet != null ? resultSet.getMetaData() : null);
+        }
+
+        /**
+         * Sets the header from the result set metadata. The header can either be parsed automatically from the input file with:
+         *
+         * <pre>
+         * builder.setHeader();
+         * </pre>
+         * <p>
+         * or specified manually with:
+         *
+         * <pre>
+         * builder.setHeader(resultSetMetaData);
+         * </pre>
+         * <p>
+         * The header is also used by the {@link CSVPrinter}.
+         * </p>
+         *
+         * @param resultSetMetaData the metaData for the header, {@code null} if disabled, empty if parsed automatically, user specified otherwise.
+         * @return This instance.
+         * @throws SQLException SQLException if a database access error occurs or this method is called on a closed result set.
+         */
+        public Builder setHeader(final ResultSetMetaData resultSetMetaData) throws SQLException {
+            String[] labels = null;
+            if (resultSetMetaData != null) {
+                final int columnCount = resultSetMetaData.getColumnCount();
+                labels = new String[columnCount];
+                for (int i = 0; i < columnCount; i++) {
+                    labels[i] = resultSetMetaData.getColumnLabel(i + 1);
+                }
+            }
+            return setHeader(labels);
+        }
+
+        /**
+         * Sets the header to the given values. The header can either be parsed automatically from the input file with:
+         *
+         * <pre>
+         * builder.setHeader();
+         * </pre>
+         * <p>
+         * or specified manually with:
+         *
+         * <pre>
+         * builder.setHeader(&quot;name&quot;, &quot;email&quot;, &quot;phone&quot;);
+         * </pre>
+         * <p>
+         * The header is also used by the {@link CSVPrinter}.
+         * </p>
+         *
+         * @param header the header, {@code null} if disabled, empty if parsed automatically, user specified otherwise.
+         * @return This instance.
+         */
+        public Builder setHeader(final String... header) {
+            this.headers = CSVFormat.clone(header);
+            return this;
+        }
+
+        /**
+         * Sets the header comments set to the given values. The comments will be printed first, before the headers. This setting is ignored by the parser.
+         *
+         * <pre>
+         * builder.setHeaderComments(&quot;Generated by Apache Commons CSV.&quot;, Instant.now());
+         * </pre>
+         *
+         * @param headerComments the headerComments which will be printed by the Printer before the actual CSV data.
+         * @return This instance.
+         */
+        public Builder setHeaderComments(final Object... headerComments) {
+            this.headerComments = CSVFormat.clone(toStringArray(headerComments));
+            return this;
+        }
+
+        /**
+         * Sets the header comments set to the given values. The comments will be printed first, before the headers. This setting is ignored by the parser.
+         *
+         * <pre>
+         * Builder.setHeaderComments(&quot;Generated by Apache Commons CSV.&quot;, Instant.now());
+         * </pre>
+         *
+         * @param headerComments the headerComments which will be printed by the Printer before the actual CSV data.
+         * @return This instance.
+         */
+        public Builder setHeaderComments(final String... headerComments) {
+            this.headerComments = CSVFormat.clone(headerComments);
+            return this;
+        }
+
+        /**
+         * Sets the empty line skipping behavior, {@code true} to ignore the empty lines between the records, {@code false} to translate empty lines to empty
+         * records.
+         *
+         * @param ignoreEmptyLines the empty line skipping behavior, {@code true} to ignore the empty lines between the records, {@code false} to translate
+         *                         empty lines to empty records.
+         * @return This instance.
+         */
+        public Builder setIgnoreEmptyLines(final boolean ignoreEmptyLines) {
+            this.ignoreEmptyLines = ignoreEmptyLines;
+            return this;
+        }
+
+        /**
+         * Sets the parser case mapping behavior, {@code true} to access name/values, {@code false} to leave the mapping as is.
+         *
+         * @param ignoreHeaderCase the case mapping behavior, {@code true} to access name/values, {@code false} to leave the mapping as is.
+         * @return This instance.
+         */
+        public Builder setIgnoreHeaderCase(final boolean ignoreHeaderCase) {
+            this.ignoreHeaderCase = ignoreHeaderCase;
+            return this;
+        }
+
+        /**
+         * Sets the parser trimming behavior, {@code true} to remove the surrounding spaces, {@code false} to leave the spaces as is.
+         *
+         * @param ignoreSurroundingSpaces the parser trimming behavior, {@code true} to remove the surrounding spaces, {@code false} to leave the spaces as is.
+         * @return This instance.
+         */
+        public Builder setIgnoreSurroundingSpaces(final boolean ignoreSurroundingSpaces) {
+            this.ignoreSurroundingSpaces = ignoreSurroundingSpaces;
+            return this;
+        }
+
+        /**
+         * Sets the String to convert to and from {@code null}. No substitution occurs if {@code null}.
+         *
+         * <ul>
+         * <li><strong>Reading:</strong> Converts strings equal to the given {@code nullString} to {@code null} when reading records.</li>
+         * <li><strong>Writing:</strong> Writes {@code null} as the given {@code nullString} when writing records.</li>
+         * </ul>
+         *
+         * @param nullString the String to convert to and from {@code null}. No substitution occurs if {@code null}.
+         * @return This instance.
+         */
+        public Builder setNullString(final String nullString) {
+            this.nullString = nullString;
+            this.quotedNullString = quoteCharacter + nullString + quoteCharacter;
+            return this;
+        }
+
+        /**
+         * Sets the quote character.
+         *
+         * @param quoteCharacter the quote character.
+         * @return This instance.
+         */
+        public Builder setQuote(final char quoteCharacter) {
+            setQuote(Character.valueOf(quoteCharacter));
+            return this;
+        }
+
+        /**
+         * Sets the quote character, use {@code null} to disable.
+         *
+         * @param quoteCharacter the quote character, use {@code null} to disable.
+         * @return This instance.
+         */
+        public Builder setQuote(final Character quoteCharacter) {
+            if (isLineBreak(quoteCharacter)) {
+                throw new IllegalArgumentException("The quoteChar cannot be a line break");
+            }
+            this.quoteCharacter = quoteCharacter;
+            return this;
+        }
+
+        /**
+         * Sets the quote policy to use for output.
+         *
+         * @param quoteMode the quote policy to use for output.
+         * @return This instance.
+         */
+        public Builder setQuoteMode(final QuoteMode quoteMode) {
+            this.quoteMode = quoteMode;
+            return this;
+        }
+
+        /**
+         * Sets the record separator to use for output.
+         *
+         * <p>
+         * <strong>Note:</strong> This setting is only used during printing and does not affect parsing. Parsing currently only works for inputs with '\n', '\r'
+         * and "\r\n"
+         * </p>
+         *
+         * @param recordSeparator the record separator to use for output.
+         * @return This instance.
+         */
+        public Builder setRecordSeparator(final char recordSeparator) {
+            this.recordSeparator = String.valueOf(recordSeparator);
+            return this;
+        }
+
+        /**
+         * Sets the record separator to use for output.
+         *
+         * <p>
+         * <strong>Note:</strong> This setting is only used during printing and does not affect parsing. Parsing currently only works for inputs with '\n', '\r'
+         * and "\r\n"
+         * </p>
+         *
+         * @param recordSeparator the record separator to use for output.
+         * @return This instance.
+         */
+        public Builder setRecordSeparator(final String recordSeparator) {
+            this.recordSeparator = recordSeparator;
+            return this;
+        }
+
+        /**
+         * Sets whether to skip the header record.
+         *
+         * @param skipHeaderRecord whether to skip the header record.
+         * @return This instance.
+         */
+        public Builder setSkipHeaderRecord(final boolean skipHeaderRecord) {
+            this.skipHeaderRecord = skipHeaderRecord;
+            return this;
+        }
+
+        /**
+         * Sets whether to add a trailing delimiter.
+         *
+         * @param trailingDelimiter whether to add a trailing delimiter.
+         * @return This instance.
+         */
+        public Builder setTrailingDelimiter(final boolean trailingDelimiter) {
+            this.trailingDelimiter = trailingDelimiter;
+            return this;
+        }
+
+        /**
+         * Sets whether to trim leading and trailing blanks.
+         *
+         * @param trim whether to trim leading and trailing blanks.
+         * @return This instance.
+         */
+        public Builder setTrim(final boolean trim) {
+            this.trim = trim;
+            return this;
+        }
+
+        public Builder setFieldCount(int fieldCount) {
+            this.fieldCount = fieldCount;
+            return this;
+        }
+
+        public Builder setValidateFieldCount(boolean validateFieldCount) {
+            this.validateFieldCount = validateFieldCount;
+            return this;
+        }
     }
 }

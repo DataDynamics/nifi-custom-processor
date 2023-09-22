@@ -122,78 +122,74 @@ import static shaded.org.apache.commons.csv.Token.Type.TOKEN;
  */
 public final class CSVParser implements Iterable<shaded.org.apache.commons.csv.CSVRecord>, Closeable {
 
-    class CSVRecordIterator implements Iterator<shaded.org.apache.commons.csv.CSVRecord> {
-        private shaded.org.apache.commons.csv.CSVRecord current;
+    private final shaded.org.apache.commons.csv.CSVFormat format;
+    private final Headers headers;
+    private final shaded.org.apache.commons.csv.Lexer lexer;
+    private final CSVRecordIterator csvRecordIterator;
+    /**
+     * A record buffer for getRecord(). Grows as necessary and is reused.
+     */
+    private final List<String> recordList = new ArrayList<>();
+    /**
+     * Lexer offset when the parser does not start parsing at the beginning of the source. Usually used in combination
+     * with {@link #recordNumber}.
+     */
+    private final long characterOffset;
 
-        private shaded.org.apache.commons.csv.CSVRecord getNextRecord() {
-            try {
-                CSVRecord record = CSVParser.this.nextRecord();
-                if (CSVParser.this.lexer.isValidateFieldCount() && CSVParser.this.lexer.getFieldCount() != record.values().length) {
-                    // Exception
-                    throw new FieldCountMismatchException(String.format("Field Count Mismatched >> Expected : %s, Real : %s", CSVParser.this.lexer.getFieldCount(), record.values().length));
-                }
-                return record;
-            } catch (final IOException e) {
-                throw new UncheckedIOException(e.getClass().getSimpleName() + " reading next record: " + e.toString(), e);
-            }
-        }
+    // the following objects are shared to reduce garbage
+    private final shaded.org.apache.commons.csv.Token reusableToken = new shaded.org.apache.commons.csv.Token();
+    private String headerComment;
+    private String trailerComment;
+    /**
+     * The next record number to assign.
+     */
+    private long recordNumber;
 
-        @Override
-        public boolean hasNext() {
-            if (CSVParser.this.isClosed()) {
-                return false;
-            }
-            if (this.current == null) {
-                this.current = this.getNextRecord();
-            }
-
-            return this.current != null;
-        }
-
-        @Override
-        public shaded.org.apache.commons.csv.CSVRecord next() {
-            if (CSVParser.this.isClosed()) {
-                throw new NoSuchElementException("CSVParser has been closed");
-            }
-            shaded.org.apache.commons.csv.CSVRecord next = this.current;
-            this.current = null;
-
-            if (next == null) {
-                // hasNext() wasn't called before
-                next = this.getNextRecord();
-                if (next == null) {
-                    throw new NoSuchElementException("No more CSV records available");
-                }
-            }
-
-            return next;
-        }
-
-        @Override
-        public void remove() {
-            throw new UnsupportedOperationException();
-        }
+    /**
+     * Constructs a new instance using the given {@link shaded.org.apache.commons.csv.CSVFormat}
+     *
+     * <p>
+     * If you do not read all records from the given {@code reader}, you should call {@link #close()} on the parser,
+     * unless you close the {@code reader}.
+     * </p>
+     *
+     * @param reader a Reader containing CSV-formatted input. Must not be null.
+     * @param format the CSVFormat used for CSV parsing. Must not be null.
+     * @throws IllegalArgumentException If the parameters of the format are inconsistent or if either reader or format are null.
+     * @throws IOException              If there is a problem reading the header or skipping the first record
+     */
+    public CSVParser(final Reader reader, final shaded.org.apache.commons.csv.CSVFormat format) throws IOException {
+        this(reader, format, 0, 1);
     }
 
     /**
-     * Header information based on name and position.
+     * Constructs a new instance using the given {@link shaded.org.apache.commons.csv.CSVFormat}
+     *
+     * <p>
+     * If you do not read all records from the given {@code reader}, you should call {@link #close()} on the parser,
+     * unless you close the {@code reader}.
+     * </p>
+     *
+     * @param reader          a Reader containing CSV-formatted input. Must not be null.
+     * @param format          the CSVFormat used for CSV parsing. Must not be null.
+     * @param characterOffset Lexer offset when the parser does not start parsing at the beginning of the source.
+     * @param recordNumber    The next record number to assign
+     * @throws IllegalArgumentException If the parameters of the format are inconsistent or if either reader or format are null.
+     * @throws IOException              If there is a problem reading the header or skipping the first record
+     * @since 1.1
      */
-    private static final class Headers {
+    @SuppressWarnings("resource")
+    public CSVParser(final Reader reader, final shaded.org.apache.commons.csv.CSVFormat format, final long characterOffset, final long recordNumber)
+            throws IOException {
+        Objects.requireNonNull(reader, "reader");
+        Objects.requireNonNull(format, "format");
 
-        /**
-         * Header column positions (0-based)
-         */
-        final Map<String, Integer> headerMap;
-
-        /**
-         * Header names in column order
-         */
-        final List<String> headerNames;
-
-        Headers(final Map<String, Integer> headerMap, final List<String> headerNames) {
-            this.headerMap = headerMap;
-            this.headerNames = headerNames;
-        }
+        this.format = format.copy();
+        this.lexer = new shaded.org.apache.commons.csv.Lexer(format, new ExtendedBufferedReader(reader)); // FIXED : CSV Format
+        this.csvRecordIterator = new CSVRecordIterator();
+        this.headers = createHeaders();
+        this.characterOffset = characterOffset;
+        this.recordNumber = recordNumber - 1;
     }
 
     /**
@@ -272,8 +268,6 @@ public final class CSVParser implements Iterable<shaded.org.apache.commons.csv.C
         return new CSVParser(reader, format);
     }
 
-    // the following objects are shared to reduce garbage
-
     /**
      * Creates a parser for the given {@link String}.
      *
@@ -312,83 +306,6 @@ public final class CSVParser implements Iterable<shaded.org.apache.commons.csv.C
         Objects.requireNonNull(format, "format");
 
         return new CSVParser(new InputStreamReader(url.openStream(), charset), format);
-    }
-
-    private String headerComment;
-
-    private String trailerComment;
-
-    private final shaded.org.apache.commons.csv.CSVFormat format;
-
-    private final Headers headers;
-
-    private final shaded.org.apache.commons.csv.Lexer lexer;
-
-    private final CSVRecordIterator csvRecordIterator;
-
-    /**
-     * A record buffer for getRecord(). Grows as necessary and is reused.
-     */
-    private final List<String> recordList = new ArrayList<>();
-
-    /**
-     * The next record number to assign.
-     */
-    private long recordNumber;
-
-    /**
-     * Lexer offset when the parser does not start parsing at the beginning of the source. Usually used in combination
-     * with {@link #recordNumber}.
-     */
-    private final long characterOffset;
-
-    private final shaded.org.apache.commons.csv.Token reusableToken = new shaded.org.apache.commons.csv.Token();
-
-    /**
-     * Constructs a new instance using the given {@link shaded.org.apache.commons.csv.CSVFormat}
-     *
-     * <p>
-     * If you do not read all records from the given {@code reader}, you should call {@link #close()} on the parser,
-     * unless you close the {@code reader}.
-     * </p>
-     *
-     * @param reader a Reader containing CSV-formatted input. Must not be null.
-     * @param format the CSVFormat used for CSV parsing. Must not be null.
-     * @throws IllegalArgumentException If the parameters of the format are inconsistent or if either reader or format are null.
-     * @throws IOException              If there is a problem reading the header or skipping the first record
-     */
-    public CSVParser(final Reader reader, final shaded.org.apache.commons.csv.CSVFormat format) throws IOException {
-        this(reader, format, 0, 1);
-    }
-
-    /**
-     * Constructs a new instance using the given {@link shaded.org.apache.commons.csv.CSVFormat}
-     *
-     * <p>
-     * If you do not read all records from the given {@code reader}, you should call {@link #close()} on the parser,
-     * unless you close the {@code reader}.
-     * </p>
-     *
-     * @param reader          a Reader containing CSV-formatted input. Must not be null.
-     * @param format          the CSVFormat used for CSV parsing. Must not be null.
-     * @param characterOffset Lexer offset when the parser does not start parsing at the beginning of the source.
-     * @param recordNumber    The next record number to assign
-     * @throws IllegalArgumentException If the parameters of the format are inconsistent or if either reader or format are null.
-     * @throws IOException              If there is a problem reading the header or skipping the first record
-     * @since 1.1
-     */
-    @SuppressWarnings("resource")
-    public CSVParser(final Reader reader, final shaded.org.apache.commons.csv.CSVFormat format, final long characterOffset, final long recordNumber)
-            throws IOException {
-        Objects.requireNonNull(reader, "reader");
-        Objects.requireNonNull(format, "format");
-
-        this.format = format.copy();
-        this.lexer = new shaded.org.apache.commons.csv.Lexer(format, new ExtendedBufferedReader(reader)); // FIXED : CSV Format
-        this.csvRecordIterator = new CSVRecordIterator();
-        this.headers = createHeaders();
-        this.characterOffset = characterOffset;
-        this.recordNumber = recordNumber - 1;
     }
 
     private void addRecordValue(final boolean lastRecord) {
@@ -765,6 +682,80 @@ public final class CSVParser implements Iterable<shaded.org.apache.commons.csv.C
      */
     public Stream<CSVRecord> stream() {
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterator(), Spliterator.ORDERED), false);
+    }
+
+    /**
+     * Header information based on name and position.
+     */
+    private static final class Headers {
+
+        /**
+         * Header column positions (0-based)
+         */
+        final Map<String, Integer> headerMap;
+
+        /**
+         * Header names in column order
+         */
+        final List<String> headerNames;
+
+        Headers(final Map<String, Integer> headerMap, final List<String> headerNames) {
+            this.headerMap = headerMap;
+            this.headerNames = headerNames;
+        }
+    }
+
+    class CSVRecordIterator implements Iterator<shaded.org.apache.commons.csv.CSVRecord> {
+        private shaded.org.apache.commons.csv.CSVRecord current;
+
+        private shaded.org.apache.commons.csv.CSVRecord getNextRecord() {
+            try {
+                CSVRecord record = CSVParser.this.nextRecord();
+                if (CSVParser.this.lexer.isValidateFieldCount() && CSVParser.this.lexer.getFieldCount() != record.values().length) {
+                    // Exception
+                    throw new FieldCountMismatchException(String.format("Field Count Mismatched >> Expected : %s, Real : %s", CSVParser.this.lexer.getFieldCount(), record.values().length));
+                }
+                return record;
+            } catch (final IOException e) {
+                throw new UncheckedIOException(e.getClass().getSimpleName() + " reading next record: " + e.toString(), e);
+            }
+        }
+
+        @Override
+        public boolean hasNext() {
+            if (CSVParser.this.isClosed()) {
+                return false;
+            }
+            if (this.current == null) {
+                this.current = this.getNextRecord();
+            }
+
+            return this.current != null;
+        }
+
+        @Override
+        public shaded.org.apache.commons.csv.CSVRecord next() {
+            if (CSVParser.this.isClosed()) {
+                throw new NoSuchElementException("CSVParser has been closed");
+            }
+            shaded.org.apache.commons.csv.CSVRecord next = this.current;
+            this.current = null;
+
+            if (next == null) {
+                // hasNext() wasn't called before
+                next = this.getNextRecord();
+                if (next == null) {
+                    throw new NoSuchElementException("No more CSV records available");
+                }
+            }
+
+            return next;
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
     }
 
 }

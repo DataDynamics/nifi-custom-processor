@@ -36,25 +36,23 @@ import java.util.concurrent.LinkedBlockingQueue;
 @Tags({"custom", "timestamp", "datadynamics", "avro", "result", "set", "writer", "serializer", "record", "recordset", "row"})
 @CapabilityDescription("Writes the contents of a RecordSet in Binary Avro format.")
 public class TimestampFormatAvroRecordSetWriter extends SchemaRegistryRecordSetWriter implements RecordSetWriterFactory {
-    private static final Set<SchemaField> requiredSchemaFields = EnumSet.of(SchemaField.SCHEMA_TEXT, SchemaField.SCHEMA_TEXT_FORMAT);
-
-    private enum CodecType {
-        BZIP2,
-        DEFLATE,
-        NONE,
-        SNAPPY,
-        LZO
-    }
-
-    private static final PropertyDescriptor COMPRESSION_FORMAT = new Builder()
-            .name("compression-format")
-            .displayName("Compression Format")
-            .description("Compression type to use when writing Avro files. Default is None.")
-            .allowableValues(CodecType.values())
-            .defaultValue(CodecType.NONE.toString())
-            .required(true)
+    public static final PropertyDescriptor TIMESTAMP_FORMAT_PROPERTY_NAME = new PropertyDescriptor.Builder()
+            .name("timestamp-format-property-name")
+            .displayName("Avro Schema Properties Name for Timestamp Format")
+            .description("Timestamp 컬럼을 처리할 때 사용할 Format을 정의한 Avro Schema의 Property Name (기본값; properties)")
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .defaultValue("properties")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .required(false)
             .build();
-
+    public static final PropertyDescriptor ADD_HOURS = new PropertyDescriptor.Builder()
+            .name("add-hours")
+            .displayName("Add Hours")
+            .description("Timestamp 컬럼에 시간을 +합니다.")
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .addValidator(StandardValidators.INTEGER_VALIDATOR)
+            .required(false)
+            .build();
     static final PropertyDescriptor ENCODER_POOL_SIZE = new Builder()
             .name("encoder-pool-size")
             .displayName("Encoder Pool Size")
@@ -66,10 +64,8 @@ public class TimestampFormatAvroRecordSetWriter extends SchemaRegistryRecordSetW
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .defaultValue("32")
             .build();
-
     static final AllowableValue AVRO_EMBEDDED = new AllowableValue("avro-embedded", "Embed Avro Schema",
             "The FlowFile will have the Avro schema embedded into the content, as is typical with Avro");
-
     static final PropertyDescriptor CACHE_SIZE = new PropertyDescriptor.Builder()
             .name("cache-size")
             .displayName("Cache Size")
@@ -78,26 +74,15 @@ public class TimestampFormatAvroRecordSetWriter extends SchemaRegistryRecordSetW
             .defaultValue("1000")
             .required(true)
             .build();
-
-    public static final PropertyDescriptor TIMESTAMP_FORMAT_PROPERTY_NAME = new PropertyDescriptor.Builder()
-            .name("timestamp-format-property-name")
-            .displayName("Avro Schema Properties Name for Timestamp Format")
-            .description("Timestamp 컬럼을 처리할 때 사용할 Format을 정의한 Avro Schema의 Property Name (기본값; properties)")
-            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
-            .defaultValue("properties")
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .required(false)
+    private static final Set<SchemaField> requiredSchemaFields = EnumSet.of(SchemaField.SCHEMA_TEXT, SchemaField.SCHEMA_TEXT_FORMAT);
+    private static final PropertyDescriptor COMPRESSION_FORMAT = new Builder()
+            .name("compression-format")
+            .displayName("Compression Format")
+            .description("Compression type to use when writing Avro files. Default is None.")
+            .allowableValues(CodecType.values())
+            .defaultValue(CodecType.NONE.toString())
+            .required(true)
             .build();
-
-    public static final PropertyDescriptor ADD_HOURS = new PropertyDescriptor.Builder()
-            .name("add-hours")
-            .displayName("Add Hours")
-            .description("Timestamp 컬럼에 시간을 +합니다.")
-            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
-            .addValidator(StandardValidators.INTEGER_VALIDATOR)
-            .required(false)
-            .build();
-
     private LoadingCache<String, Schema> compiledAvroSchemaCache;
     private volatile BlockingQueue<BinaryEncoder> encoderPool;
     private String timestampFormatPropertyKeyName;
@@ -236,5 +221,13 @@ public class TimestampFormatAvroRecordSetWriter extends SchemaRegistryRecordSetW
         }
 
         return results;
+    }
+
+    private enum CodecType {
+        BZIP2,
+        DEFLATE,
+        NONE,
+        SNAPPY,
+        LZO
     }
 }
