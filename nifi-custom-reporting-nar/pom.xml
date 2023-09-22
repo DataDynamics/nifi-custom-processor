@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.datadynamics.nifi</groupId>
         <artifactId>nifi-custom-services</artifactId>
-        <version>1.0.6</version>
+        <version>1.0.7</version>
     </parent>
 
     <artifactId>nifi-custom-reporting-nar</artifactId>
@@ -30,7 +30,7 @@
         <dependency>
             <groupId>io.datadynamics.nifi</groupId>
             <artifactId>nifi-custom-reporting-tasks</artifactId>
-            <version>1.0.6</version>
+            <version>1.0.7</version>
         </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>

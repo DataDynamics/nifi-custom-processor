@@ -5,11 +5,11 @@
     <parent>
         <groupId>io.datadynamics.nifi</groupId>
         <artifactId>nifi-custom-services</artifactId>
-        <version>1.0.6</version>
+        <version>1.0.7</version>
     </parent>
 
     <artifactId>nifi-custom-controllers-nar</artifactId>
-    <version>1.0.6</version>
+    <version>1.0.7</version>
     <packaging>nar</packaging>
 
     <properties>
@@ -31,7 +31,7 @@
         <dependency>
             <groupId>io.datadynamics.nifi</groupId>
             <artifactId>nifi-custom-controllers</artifactId>
-            <version>1.0.6</version>
+            <version>1.0.7</version>
         </dependency>
 
         <dependency>

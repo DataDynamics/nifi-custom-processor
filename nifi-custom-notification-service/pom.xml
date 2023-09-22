@@ -5,11 +5,11 @@
     <parent>
         <groupId>io.datadynamics.nifi</groupId>
         <artifactId>nifi-custom-services</artifactId>
-        <version>1.0.6</version>
+        <version>1.0.7</version>
     </parent>
 
     <artifactId>nifi-custom-notification-service</artifactId>
-    <version>1.0.6</version>
+    <version>1.0.7</version>
     <packaging>jar</packaging>
 
     <properties>
