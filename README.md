@@ -179,10 +179,10 @@ SELECT 1 FROM dual;
 기존에 NiFi에 포함되어 있는 Reporting Task의 경우 로그 메시지 출력을 통해 NiFi UI의 Bulletin에 표시되도록 할 수는 있습니다.
 하지만 장애가 발생할 수 있는 중요한 정보는 알람이 필요한 경우가 많으므로 다음의 Reporting Task의 경우 외부 HTTP URI에 임계치를 초과하는 경우 알람을 발송할 수 있습니다.
 
-* MonitorDiskUsageReportingTask - Disk Usage의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
-* MonitorMemoryPoolReportingTask - JVM Memory Pool의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
-* MonitorMemoryUsageReportingTask - JVM Memory Usageㅇ의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
-* MonitorThreadReportingTask - JVM Thread의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
+* `MonitorDiskUsageReportingTask` - Disk Usage의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
+* `MonitorMemoryPoolReportingTask` - JVM Memory Pool의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
+* `MonitorMemoryUsageReportingTask` - JVM Memory Usageㅇ의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
+* `MonitorThreadReportingTask` - JVM Thread의 지정한 임계치를 초과한 경우 특정 URI로 알람을 전송합니다.
 
 ## 기타
 
