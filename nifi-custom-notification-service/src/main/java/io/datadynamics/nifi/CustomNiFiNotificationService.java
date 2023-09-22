@@ -25,27 +25,28 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
     public static ObjectMapper mapper = new ObjectMapper();
 
     public static final String NOTIFICATION_TYPE_KEY = "notification.type";
+
     public static final String NOTIFICATION_SUBJECT_KEY = "notification.subject";
 
     public static final PropertyDescriptor PROP_URL = new PropertyDescriptor.Builder()
             .name("URL")
-            .description("The URL to send the notification to.")
+            .description("알람을 전송할 URL")
             .required(true)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .addValidator(StandardValidators.URL_VALIDATOR)
             .build();
 
     public static final PropertyDescriptor PROP_CONNECTION_TIMEOUT = new PropertyDescriptor.Builder()
-            .name("Connection timeout")
-            .description("Max wait time for connection to remote service.")
+            .name("커넥션 타임아웃")
+            .description("원격 서비스에 접속을 위한 대기시간")
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue("10s")
             .build();
 
     public static final PropertyDescriptor PROP_WRITE_TIMEOUT = new PropertyDescriptor.Builder()
-            .name("Write timeout")
-            .description("Max wait time for remote service to read the request sent.")
+            .name("응답 대기시간")
+            .description("원격 서비스에 전송한 요청의 응답을 대기하는 시간")
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue("10s")
@@ -159,11 +160,6 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
         MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
         MemoryUsage heapMemoryUsage = memBean.getHeapMemoryUsage();
 
-        System.out.println(heapMemoryUsage.getMax()); // max memory allowed for jvm -Xmx flag (-1 if isn't specified)
-        System.out.println(heapMemoryUsage.getCommitted()); // given memory to JVM by OS ( may fail to reach getMax, if there isn't more memory)
-        System.out.println(heapMemoryUsage.getUsed()); // used now by your heap
-        System.out.println(heapMemoryUsage.getInit()); // -Xms flag
-
         params.put("committedMemory", heapMemoryUsage.getCommitted());
         params.put("usedMemory", heapMemoryUsage.getUsed());
         params.put("maxMemory", heapMemoryUsage.getMax());
@@ -183,9 +179,9 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
         ThreadInfo[] threadInfos = threadMXBean.getThreadInfo(threadIds);
         for (ThreadInfo threadInfo : threadInfos) {
             StringBuilder builder = new StringBuilder();
-            builder.append("Thread name: " + threadInfo.getThreadName()).append("\n");
-            builder.append("Thread state: " + threadInfo.getThreadState()).append("\n");
-            builder.append("Thread stack trace: ").append("\n");
+            builder.append("threadName: " + threadInfo.getThreadName()).append("\n");
+            builder.append("threadState: " + threadInfo.getThreadState()).append("\n");
+            builder.append("threadStackTrace: ").append("\n");
             for (StackTraceElement stackTraceElement : threadInfo.getStackTrace()) {
                 builder.append("  " + stackTraceElement).append("\n");
             }

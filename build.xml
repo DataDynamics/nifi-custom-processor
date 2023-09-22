@@ -11,11 +11,21 @@
         </delete>
     </target>
 
-    <target name="CP-REPORTING-TASKS">
+    <target name="COPY-REPORTING-TASKS">
         <echo message="Copying NAR to NiFi Extensions"/>
 
         <copy todir="${NIFI_EXT_DIR}">
             <fileset dir="nifi-custom-reporting-nar/target">
+                <include name="*.nar"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <target name="COPY-CONTROLLER-SERVICES">
+        <echo message="Copying NAR to NiFi Extensions"/>
+
+        <copy todir="${NIFI_EXT_DIR}">
+            <fileset dir="nifi-custom-controllers-nar/target">
                 <include name="*.nar"/>
             </fileset>
         </copy>
