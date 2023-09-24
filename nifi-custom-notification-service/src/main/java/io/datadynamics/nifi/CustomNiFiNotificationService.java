@@ -11,11 +11,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.management.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.net.InetAddress;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class CustomNiFiNotificationService extends AbstractNotificationService {
@@ -43,6 +42,15 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .defaultValue("10s")
             .build();
+    public static final PropertyDescriptor PROP_JVM_METRICS = new PropertyDescriptor.Builder()
+            .name("JVM Heap & Thread 정보 수집")
+            .description("JVM Heap Size 및 Thread 개수의 수집 여부")
+            .allowableValues("true", "false")
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .defaultValue("true")
+            .build();
+
     private static final List<PropertyDescriptor> supportedProperties;
     public static ObjectMapper mapper = new ObjectMapper();
 
@@ -51,6 +59,7 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
         supportedProperties.add(PROP_URL);
         supportedProperties.add(PROP_CONNECTION_TIMEOUT);
         supportedProperties.add(PROP_WRITE_TIMEOUT);
+        supportedProperties.add(PROP_JVM_METRICS);
     }
 
     private final AtomicReference<OkHttpClient> httpClientReference = new AtomicReference<>();
@@ -98,13 +107,22 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
 
     @Override
     public void notify(NotificationContext context, NotificationType notificationType, String subject, String message) throws NotificationFailedException {
+        final boolean isCollectJVMMetrics = context.getProperty(PROP_JVM_METRICS).evaluateAttributeExpressions().asBoolean();
+
         try {
             Map params = new HashMap();
+            params.put("hostname", InetAddress.getLocalHost().getHostName());
             params.put("type", notificationType.name());
             params.put("subject", subject);
             params.put("message", message);
             params.put("properties", getProperties(context));
-            params.put("jvmMetrics", getJvmMetrics(context));
+            if (isCollectJVMMetrics) {
+                params.put("jvmHeap", getJvmHeap());
+                params.put("jvmThread", getThreadCount());
+                params.put("jvmMetricsInclude", true);
+            } else {
+                params.put("jvmMetricsInclude", false);
+            }
 
             String json = mapper.writeValueAsString(params);
             logger.info("{}", String.format("Type : %s, Subject : %s, Message : %s, Detail : \n%s", notificationType.name(), subject, message, json));
@@ -125,13 +143,13 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
             try (final Response response = call.execute()) {
 
                 if (!response.isSuccessful()) {
-                    throw new NotificationFailedException("[CustomNiFiNotificationService] Failed to send HTTP Notification. Received an unsuccessful status code response '" + response.code() + "'. The message was '" + response.message() + "'");
+                    throw new NotificationFailedException("Failed to send HTTP Notification. Received an unsuccessful status code response '" + response.code() + "'. The message was '" + response.message() + "'");
                 }
             }
         } catch (NotificationFailedException e) {
             throw e;
         } catch (Exception e) {
-            throw new NotificationFailedException("[CustomNiFiNotificationService] Failed to send Http Notification", e);
+            throw new NotificationFailedException("Failed to send Http Notification", e);
         }
     }
 
@@ -147,7 +165,7 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
         return params;
     }
 
-    Map getJvmMetrics(NotificationContext context) {
+    public static Map getJvmHeap() {
         Map params = new HashMap();
 
         MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
@@ -157,15 +175,41 @@ public class CustomNiFiNotificationService extends AbstractNotificationService {
         params.put("usedMemory", heapMemoryUsage.getUsed());
         params.put("maxMemory", heapMemoryUsage.getMax());
         params.put("initMemory", heapMemoryUsage.getInit());
-        params.put("initMemory", heapMemoryUsage.getInit());
-        params.put("activeThread", Thread.activeCount());
-        params.put("totalThreadCount", ManagementFactory.getThreadMXBean().getThreadCount());
-        params.put("threadDump", getThreadDump());
 
         return params;
     }
 
-    private List getThreadDump() {
+    public static Map getThreadCount() {
+        Map params = new HashMap();
+        params.put("activeThread", Thread.activeCount());
+        params.put("peakThreadCount", ManagementFactory.getThreadMXBean().getPeakThreadCount());
+        params.put("daemonThreadCount", ManagementFactory.getThreadMXBean().getDaemonThreadCount());
+        params.put("currentThreadUserTime", ManagementFactory.getThreadMXBean().getCurrentThreadUserTime());
+        params.put("currentThreadCpuTime", ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime());
+        params.put("threadCount", ManagementFactory.getThreadMXBean().getThreadCount());
+
+        Map<Thread, StackTraceElement[]> threadMap = Thread.getAllStackTraces();
+        Set<Thread> threadSet = threadMap.keySet();
+        Map<String, AtomicInteger> threadGroupCountMap = new HashMap<>();
+        for (Thread t : threadSet) {
+            if (threadGroupCountMap.get(t.getThreadGroup().getName()) == null) {
+                threadGroupCountMap.put(t.getThreadGroup().getName(), new AtomicInteger(0));
+            }
+            AtomicInteger count = threadGroupCountMap.get(t.getThreadGroup().getName());
+            count.incrementAndGet();
+        }
+
+        Map<String, Integer> threadGroupActiveThreadCountMap = new HashMap<>();
+        for (String key : threadGroupCountMap.keySet()) {
+            AtomicInteger count = threadGroupCountMap.get(key);
+            threadGroupActiveThreadCountMap.put(key, count.get());
+        }
+
+        params.put("activeThreadCountOfThreadGroup", threadGroupActiveThreadCountMap);
+        return params;
+    }
+
+    public static List getFullThreadDump() {
         List list = new ArrayList();
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
         long[] threadIds = threadMXBean.getAllThreadIds();
