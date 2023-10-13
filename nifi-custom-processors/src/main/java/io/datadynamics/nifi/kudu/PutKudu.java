@@ -166,7 +166,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .required(false)
             .defaultValue("0")
             .addValidator(StandardValidators.INTEGER_VALIDATOR)
-            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
+            .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
     protected static final PropertyDescriptor LOWERCASE_FIELD_NAMES = new Builder()
             .name("use-lower-case")
