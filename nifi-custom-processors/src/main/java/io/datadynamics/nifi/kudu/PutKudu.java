@@ -61,7 +61,8 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.*;
 @RequiresInstanceClassLoading // Because of calls to UserGroupInformation.setConfiguration
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
 @Tags({"dd", "custom", "put", "database", "NoSQL", "kudu", "HDFS", "record", "korea"})
-@CapabilityDescription("지정한 Record Reader를 사용하여 Incoming FlowFile에서 레코드를 읽고 해당 레코드를 지정된 Kudu의 테이블에 기록합니다. Kudu 테이블의 스키마는 Record Reader의 스키마를 활용합니다. " +
+@CapabilityDescription("지정한 Record Reader를 사용하여 Incoming FlowFile에서 레코드를 읽고 해당 레코드를 지정된 Kudu의 테이블에 기록합니다. " +
+        "Kudu 테이블의 스키마는 Record Reader의 스키마를 활용합니다. " +
         "입력에서 레코드를 읽거나 Kudu에 레코드를 쓰는 동안 오류가 발생하면 FlowFile이 failure로 라우팅됩니다.")
 @WritesAttribute(attribute = "record.count", description = "Kudu에 기록한 레코드 수")
 public class PutKudu extends AbstractKuduProcessor {
@@ -69,7 +70,7 @@ public class PutKudu extends AbstractKuduProcessor {
     public static final PropertyDescriptor RECORD_READER = new Builder()
             .name("record-reader")
             .displayName("Record Reader")
-            .description("Incoming flow file에서 레코드를 읽기 위한 서비스입니다.")
+            .description("FlowFile의 레코드를 읽기 위한 Record Reader 서비스를 지정하십시오.")
             .identifiesControllerService(RecordReaderFactory.class)
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
@@ -78,33 +79,36 @@ public class PutKudu extends AbstractKuduProcessor {
     protected static final Validator JsonValidator = new JsonValidator();
     protected static final ObjectMapper mapper = new ObjectMapper();
     protected static final PropertyDescriptor TABLE_NAME = new Builder()
-            .name("테이블명")
-            .description("데이터를 저장할 Kudu 테이블명")
+            .name("kudu-table-name")
+            .displayName("데이터를 저장할 Kudu 테이블명")
+            .description("Kudu 테이블에 데이터를 저장하기 위해서 테이블명을 지정하십시오.")
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
 
     protected static final PropertyDescriptor ADD_HOUR = new Builder()
-            .name("Timestamp 컬럼의 시간 추가")
-            .description("Timestamp 컬럼에서 GMT, KST 등의 시간 조정을 위해서 추가할 시간")
+            .name("add-hour-to-timestamp-column")
+            .displayName("Timestamp 컬럼에 시간 추가")
+            .description("Timestamp 컬럼에서 GMT, KST 등의 시간 조정을 위해서 추가할 시간을 입력합니다. Kudu는 GMT를 기본 시간으로 사용하므로 GMT로 데이터를 사용할 수 없을때 추가할 시간을 입력합니다. 그러면 Timestamp 컬럼에 대해서 지정한 시간만큼 +하여 저장합니다.")
             .required(false)
             .defaultValue("0")
             .addValidator(StandardValidators.INTEGER_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
     protected static final PropertyDescriptor LOWERCASE_FIELD_NAMES = new Builder()
-            .name("Lowercase Field Names")
-            .description("Kudu 테이블 컬럼의 인덱스를 찾을 때 컬럼명을 소문자로 변환")
+            .name("use-lower-case")
+            .displayName("소문자 필드명 사용")
+            .description("Kudu 테이블 컬럼의 인덱스를 찾을 때 컬럼명을 소문자로 변환하여 처리합니다.")
             .defaultValue("false")
             .required(true)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .build();
     protected static final PropertyDescriptor HANDLE_SCHEMA_DRIFT = new Builder()
-            .name("Handle Schema Drift")
-            .description("If set to true, when fields with names that are not in the target Kudu table " +
-                    "are encountered, the Kudu table will be altered to include new columns for those fields.")
+            .name("handle-schema-drift")
+            .displayName("컬럼 누락시 컬럼 추가 처리")
+            .description("true로 설정하면 대상 Kudu 테이블에 없는 이름을 가진 필드가 발견되면 Kudu 테이블에 새로운 컬럼을 추가하도록 변경합니다.")
             .defaultValue("false")
             .required(true)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
@@ -114,8 +118,7 @@ public class PutKudu extends AbstractKuduProcessor {
         @Override
         public ValidationResult validate(String subject, String value, ValidationContext context) {
             if (context.isExpressionLanguageSupported(subject) && context.isExpressionLanguagePresent(value)) {
-                return new ValidationResult.Builder().subject(subject).input(value)
-                        .explanation("Expression Language Present").valid(true).build();
+                return new ValidationResult.Builder().subject(subject).input(value).explanation("Expression Language 필요").valid(true).build();
             }
 
             boolean valid;
@@ -127,29 +130,27 @@ public class PutKudu extends AbstractKuduProcessor {
             }
 
             final String explanation = valid ? null :
-                    "Value must be one of: " +
-                            Arrays.stream(OperationType.values()).map(Enum::toString).collect(Collectors.joining(", "));
+                    "다음의 값중 하나가 되어야 합니다: " + Arrays.stream(OperationType.values()).map(Enum::toString).collect(Collectors.joining(", "));
             return new ValidationResult.Builder().subject(subject).input(value).valid(valid)
                     .explanation(explanation).build();
         }
     };
     protected static final PropertyDescriptor INSERT_OPERATION = new Builder()
             .name("Insert Operation")
-            .displayName("Kudu Operation Type")
-            .description("Specify operationType for this processor.\n" +
-                    "Valid values are: " +
+            .displayName("Kudu Operation 유형")
+            .description("Kudu Operation의 유형을 지정하십시오.\n" +
+                    "사용 가능한 값: " +
                     Arrays.stream(OperationType.values()).map(Enum::toString).collect(Collectors.joining(", ")) +
-                    ". This Property will be ignored if the <Operation RecordPath> property is set.")
+                    ". 만약에 <Operation RecordPath>을 설정하는 경우 이 값은 무시합니다.")
             .defaultValue(OperationType.INSERT.toString())
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(OperationTypeValidator)
             .build();
     protected static final PropertyDescriptor FLUSH_MODE = new Builder()
-            .name("Flush Mode")
-            .description("Set the new flush mode for a kudu session.\n" +
+            .name("Flush 모드")
+            .description("Kudu 세션에 Flush 모드를 설정합니다.\n" +
                     "AUTO_FLUSH_SYNC: the call returns when the operation is persisted, else it throws an exception.\n" +
-                    "AUTO_FLUSH_BACKGROUND: the call returns when the operation has been added to the buffer. This call should normally perform only fast in-memory" +
-                    " operations but it may have to wait when the buffer is full and there's another buffer being flushed.\n" +
+                    "AUTO_FLUSH_BACKGROUND: the call returns when the operation has been added to the buffer. This call should normally perform only fast in-memory operations but it may have to wait when the buffer is full and there's another buffer being flushed.\n" +
                     "MANUAL_FLUSH: the call returns when the operation has been added to the buffer, else it throws a KuduException if the buffer is full.")
             .allowableValues(SessionConfiguration.FlushMode.values())
             .defaultValue(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND.toString())
@@ -157,29 +158,26 @@ public class PutKudu extends AbstractKuduProcessor {
             .required(true)
             .build();
     protected static final PropertyDescriptor FLOWFILE_BATCH_SIZE = new Builder()
-            .name("FlowFiles per Batch")
-            .description("The maximum number of FlowFiles to process in a single execution, between 1 - 100000. " +
-                    "Depending on your memory size, and data size per row set an appropriate batch size " +
-                    "for the number of FlowFiles to process per client connection setup." +
-                    "Gradually increase this number, only if your FlowFiles typically contain a few records.")
+            .name("배치당 FlowFile의 개수")
+            .description("단일 실행에서 처리할 최대 FlowFile 수는 1~100000입니다. 메모리 크기 및 행당 데이터 크기에 따라 클라이언트 연결 설정당 처리할 FlowFile 수의 적절한 배치 크기를 설정하십시오. " +
+                    "시스템이 수용할 수 있는 수준을 확인하면서 이 값을 점차적으로 늘리십시오. 대부분의 경우 이 값을 1로 설정하도록 하고 Processor의 Concurrent Task를 늘리는 전략이 더 유용합니다.")
             .defaultValue("1")
             .required(true)
             .addValidator(StandardValidators.createLongValidator(1, 100000, true))
             .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
     protected static final PropertyDescriptor BATCH_SIZE = new Builder()
-            .name("Batch Size")
-            .displayName("Max Records per Batch")
-            .description("The maximum number of Records to process in a single Kudu-client batch, between 1 - 100000. " +
-                    "Depending on your memory size, and data size per row set an appropriate batch size. " +
-                    "Gradually increase this number to find out the best one for best performances.")
+            .name("배치당 처리할 ROW 수")
+            .displayName("1개의 배치당 최대 ROW 수")
+            .description("단일 Kudu 클라이언트가 1회 배치 처리에서 처리할 최대 레코드 수는 1~100000입니다. 메모리 크기 및 행당 데이터 크기에 따라 적절한 일괄 처리 크기를 설정합니다. " +
+                    "최고의 성능을 위한 최상의 숫자를 찾으려면 이 숫자를 점차적으로 늘리면서 테스트하여 결정하도록 합니다.")
             .defaultValue("100")
             .required(true)
             .addValidator(StandardValidators.createLongValidator(1, 100000, true))
             .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
     protected static final PropertyDescriptor IGNORE_NULL = new Builder()
-            .name("Ignore NULL")
+            .name("NULL 무시")
             .description("Kudu Put 작업시 NULL 무시. true로 설정하면 non-null만 업데이트합니다.")
             .defaultValue("false")
             .required(true)
@@ -188,11 +186,11 @@ public class PutKudu extends AbstractKuduProcessor {
             .build();
     protected static final Relationship REL_SUCCESS = new Relationship.Builder()
             .name("success")
-            .description("A FlowFile is routed to this relationship after it has been successfully stored in Kudu")
+            .description("FlowFile은 Kudu에 데이터가 성공적으로 저장된 후 이 관계로 라우팅됩니다.")
             .build();
     protected static final Relationship REL_FAILURE = new Relationship.Builder()
             .name("failure")
-            .description("A FlowFile is routed to this relationship if it cannot be sent to Kudu")
+            .description("FlowFile을 Kudu에 저장할 수 없는 경우 이 관계로 라우팅됩니다.")
             .build();
     static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure", "Route to Failure",
             "The FlowFile containing the Records that failed to insert will be routed to the 'failure' relationship");
@@ -200,7 +198,7 @@ public class PutKudu extends AbstractKuduProcessor {
             "If any Record cannot be inserted, all FlowFiles in the session will be rolled back to their input queue. This means that if data cannot be pushed, " +
                     "it will block any subsequent data from be pushed to Kudu as well until the issue is resolved. However, this may be advantageous if a strict ordering is required.");
     static final PropertyDescriptor FAILURE_STRATEGY = new Builder()
-            .name("Failure Strategy")
+            .name("failure-strategy")
             .displayName("실패 처리 방법")
             .description("배치에서 하나 이상의 레코드를 Kudu로 전송할 수 없는 경우 실패 처리 방법을 지정합니다.")
             .required(true)
@@ -208,32 +206,30 @@ public class PutKudu extends AbstractKuduProcessor {
             .defaultValue(FAILURE_STRATEGY_ROUTE.getValue())
             .build();
     static final PropertyDescriptor DATA_RECORD_PATH = new Builder()
-            .name("Data RecordPath")
+            .name("data-recordpath")
             .displayName("Data RecordPath")
-            .description("If specified, this property denotes a RecordPath that will be evaluated against each incoming Record and the Record that results from evaluating the RecordPath will be sent to" +
-                    " Kudu instead of sending the entire incoming Record. If not specified, the entire incoming Record will be published to Kudu.")
+            .description("If specified, this property denotes a RecordPath that will be evaluated against each incoming Record and the Record that results from evaluating the RecordPath will be sent to Kudu instead of sending the entire incoming Record. If not specified, the entire incoming Record will be published to Kudu.")
             .required(false)
             .addValidator(new RecordPathValidator())
             .expressionLanguageSupported(NONE)
             .build();
     static final PropertyDescriptor OPERATION_RECORD_PATH = new Builder()
-            .name("Operation RecordPath")
+            .name("operation-recordpath")
             .displayName("Operation RecordPath")
-            .description("If specified, this property denotes a RecordPath that will be evaluated against each incoming Record in order to determine the Kudu Operation Type. When evaluated, the " +
-                    "RecordPath must evaluate to one of hte valid Kudu Operation Types, or the incoming FlowFile will be routed to failure. If this property is specified, the <Kudu Operation Type> property" +
-                    " will be ignored.")
+            .description("If specified, this property denotes a RecordPath that will be evaluated against each incoming Record in order to determine the Kudu Operation Type. When evaluated, the RecordPath must evaluate to one of hte valid Kudu Operation Types, or the incoming FlowFile will be routed to failure. If this property is specified, the <Kudu Operation Type> property will be ignored.")
             .required(false)
             .addValidator(new RecordPathValidator())
             .expressionLanguageSupported(NONE)
             .build();
     static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
             .name("kudu-column-timestamp-patterns")
-            .displayName("Apply Custom Column Timestamp Patterns (JSON)")
-            .description("Timestamp 컬럼에 Timestamp Format을 별도로 지정할 수 있습니다.")
+            .displayName("Timestamp 컬럼의 Timestamp Format을 적용합니다. 입력값은 JSON 형식입니다.")
+            .description("Timestamp 컬럼에 Timestamp Format을 별도로 지정할 수 있습니다. Timestamp Format은 microseconds까지만 지원합니다.")
             .required(false)
             .addValidator(JsonValidator)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
+
     // Properties set in onScheduled.
     private volatile int batchSize = 100;
     private volatile int ffbatch = 1;
@@ -369,7 +365,7 @@ public class PutKudu extends AbstractKuduProcessor {
             try {
                 flushKuduSession(kuduSession, true, pendingRowErrors);
             } catch (final KuduException | RuntimeException e) {
-                getLogger().error("KuduSession.close() Failed", e);
+                getLogger().error("KuduSession.close() 실패", e);
             }
         }
 
