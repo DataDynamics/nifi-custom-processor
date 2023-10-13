@@ -36,18 +36,20 @@ NiFi 최초 설치시 SSL을 위한 구성이 자동으로 진행되며 이 경�
 
 ## Processor
 
-### Custom Timestamp Pattern Put Kudu
+### PutKudu
 
 기존 Put Kudu는 다음의 문제점이 있습니다.
 
 * Timestamp를 UTC 기준으로 처리
 * Timestamp Pattern 처리에 대한 기능 부족
+* Kudu Operation에 대한 JVM Heap 과다 사용으로 인한 NiFi 노드 장애
 
-따라서 Custom Timestamp Pattern Put Kudu 모듈은 다음을 추가로 지원합니다.
+따라서 PutKudu 모듈은 다음을 추가로 지원합니다.
 
 * String Timestamp 컬럼에 대해서 Timestamp Format을 커스텀하게 지정
 * Timestamp의 경우 Timestamp, Timestamp Millis, Timestamp Micro를 지원
 * PutKudu에서 Timestamp의 경우 UTC로 날짜가 변환되는 것을 조정할 수 있는 기능 추가
+* Kudu Operation에 대한 처리 결과 기록에 대한 추적 여부 설정
 
 테스트를 위해서 CSV 파일을 다음과 같이 작성합니다.
 
@@ -105,6 +107,7 @@ STORED AS KUDU;
 ```
 
 이제 Timestamp 컬럼에 대해서 문자열 Timestamp 컬럼을 파싱하기 위한 Timestamp Pattern을 다음과 같이 정의합니다.
+Impala와 Kudu의 경우 nanoseconds는 지원하지 않습니다.
 
 ```json
 {
