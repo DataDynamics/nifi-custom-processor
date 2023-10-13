@@ -48,7 +48,7 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.*;
 @SupportsBatching
 @RequiresInstanceClassLoading // Because of calls to UserGroupInformation.setConfiguration
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
-@Tags({"dd", "custom", "put", "database", "NoSQL", "kudu", "HDFS", "record", "korea"})
+@Tags({"timestamp", "custom", "put", "database", "kudu", "record", "gmt"})
 @CapabilityDescription("지정한 Record Reader를 사용하여 Incoming FlowFile에서 레코드를 읽고 해당 레코드를 지정된 Kudu의 테이블에 기록합니다. " +
         "Kudu 테이블의 스키마는 Record Reader의 스키마를 활용합니다. " +
         "입력에서 레코드를 읽거나 Kudu에 레코드를 쓰는 동안 오류가 발생하면 FlowFile이 failure로 라우팅됩니다.")
