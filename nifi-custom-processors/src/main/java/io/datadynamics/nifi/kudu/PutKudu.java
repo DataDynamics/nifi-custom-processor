@@ -243,22 +243,6 @@ public class PutKudu extends AbstractKuduProcessor {
             .allowableValues(FAILURE_STRATEGY_ROUTE, FAILURE_STRATEGY_ROLLBACK)
             .defaultValue(FAILURE_STRATEGY_ROUTE.getValue())
             .build();
-    static final PropertyDescriptor DATA_RECORD_PATH = new Builder()
-            .name("data-recordpath")
-            .displayName("Data RecordPath")
-            .description("If specified, this property denotes a RecordPath that will be evaluated against each incoming Record and the Record that results from evaluating the RecordPath will be sent to Kudu instead of sending the entire incoming Record. If not specified, the entire incoming Record will be published to Kudu.")
-            .required(false)
-            .addValidator(new RecordPathValidator())
-            .expressionLanguageSupported(NONE)
-            .build();
-    static final PropertyDescriptor OPERATION_RECORD_PATH = new Builder()
-            .name("operation-recordpath")
-            .displayName("Operation RecordPath")
-            .description("If specified, this property denotes a RecordPath that will be evaluated against each incoming Record in order to determine the Kudu Operation Type. When evaluated, the RecordPath must evaluate to one of hte valid Kudu Operation Types, or the incoming FlowFile will be routed to failure. If this property is specified, the <Kudu Operation Type> property will be ignored.")
-            .required(false)
-            .addValidator(new RecordPathValidator())
-            .expressionLanguageSupported(NONE)
-            .build();
     static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
             .name("kudu-column-timestamp-patterns")
             .displayName("Timestamp 컬럼의 Timestamp Format(JSON 형식)")
@@ -298,10 +282,6 @@ public class PutKudu extends AbstractKuduProcessor {
 
     private volatile SessionConfiguration.FlushMode flushMode;
 
-    private volatile Function<Record, OperationType> recordPathOperationType;
-
-    private volatile RecordPath dataRecordPath;
-
     private volatile String failureStrategy;
 
     private volatile boolean supportsInsertIgnoreOp;
@@ -319,8 +299,6 @@ public class PutKudu extends AbstractKuduProcessor {
         properties.add(LOWERCASE_FIELD_NAMES);
         properties.add(HANDLE_SCHEMA_DRIFT);
         properties.add(RECORD_READER);
-        properties.add(DATA_RECORD_PATH);
-        properties.add(OPERATION_RECORD_PATH);
         properties.add(INSERT_OPERATION);
         properties.add(FLUSH_MODE);
         properties.add(FLOWFILE_BATCH_SIZE);
@@ -356,18 +334,6 @@ public class PutKudu extends AbstractKuduProcessor {
         flushMode = SessionConfiguration.FlushMode.valueOf(context.getProperty(FLUSH_MODE).getValue().toUpperCase());
         createKerberosUserAndOrKuduClient(context);
         supportsInsertIgnoreOp = supportsIgnoreOperations();
-
-        final String operationRecordPathValue = context.getProperty(OPERATION_RECORD_PATH).getValue();
-        if (operationRecordPathValue == null) {
-            recordPathOperationType = null;
-        } else {
-            final RecordPath recordPath = RecordPath.compile(operationRecordPathValue);
-            recordPathOperationType = new RecordPathOperationType(recordPath);
-        }
-
-        final String dataRecordPathValue = context.getProperty(DATA_RECORD_PATH).getValue();
-        dataRecordPath = dataRecordPathValue == null ? null : RecordPath.compile(dataRecordPathValue);
-
         failureStrategy = context.getProperty(FAILURE_STRATEGY).getValue();
     }
 
@@ -479,12 +445,8 @@ public class PutKudu extends AbstractKuduProcessor {
                 final boolean handleSchemaDrift = Boolean.parseBoolean(getEvaluatedProperty(HANDLE_SCHEMA_DRIFT, context, flowFile));
 
                 final Function<Record, OperationType> operationTypeFunction;
-                if (recordPathOperationType == null) {
-                    final OperationType staticOperationType = OperationType.valueOf(getEvaluatedProperty(INSERT_OPERATION, context, flowFile).toUpperCase());
-                    operationTypeFunction = record -> staticOperationType;
-                } else {
-                    operationTypeFunction = recordPathOperationType;
-                }
+                final OperationType staticOperationType = OperationType.valueOf(getEvaluatedProperty(INSERT_OPERATION, context, flowFile).toUpperCase());
+                operationTypeFunction = record -> staticOperationType;
 
                 final RecordSet recordSet = recordReader.createRecordSet();
                 KuduTable kuduTable = kuduClient.openTable(tableName);
@@ -507,28 +469,7 @@ public class PutKudu extends AbstractKuduProcessor {
                 while (record != null) {
                     final OperationType operationType = operationTypeFunction.apply(record);
 
-                    final List<Record> dataRecords;
-                    if (dataRecordPath == null) {
-                        dataRecords = Collections.singletonList(record);
-                    } else {
-                        final RecordPathResult result = dataRecordPath.evaluate(record);
-                        final List<FieldValue> fieldValues = result.getSelectedFields().collect(Collectors.toList());
-                        if (fieldValues.isEmpty()) {
-                            throw new ProcessException("RecordPath " + dataRecordPath.getPath() + " evaluated against Record yielded no results.");
-                        }
-
-                        for (final FieldValue fieldValue : fieldValues) {
-                            final RecordFieldType fieldType = fieldValue.getField().getDataType().getFieldType();
-                            if (fieldType != RecordFieldType.RECORD) {
-                                throw new ProcessException("RecordPath " + dataRecordPath.getPath() + " evaluated against Record expected to return one or more Records but encountered field of type " + fieldType);
-                            }
-                        }
-
-                        dataRecords = new ArrayList<>(fieldValues.size());
-                        for (final FieldValue fieldValue : fieldValues) {
-                            dataRecords.add((Record) fieldValue.getValue());
-                        }
-                    }
+                    final List<Record> dataRecords = Collections.singletonList(record); // Data Record Path는 무시함
 
                     for (final Record dataRecord : dataRecords) {
                         // If supportsIgnoreOps is false, in the case of INSERT_IGNORE the Kudu session
@@ -598,26 +539,7 @@ public class PutKudu extends AbstractKuduProcessor {
         final String tableName = kuduTable.getName();
         final Schema schema = kuduTable.getSchema();
 
-        final List<RecordField> recordFields;
-        if (dataRecordPath == null) {
-            recordFields = record.getSchema().getFields();
-        } else {
-            final RecordPathResult recordPathResult = dataRecordPath.evaluate(record);
-            final List<FieldValue> fieldValues = recordPathResult.getSelectedFields().collect(Collectors.toList());
-
-            recordFields = new ArrayList<>();
-            for (final FieldValue fieldValue : fieldValues) {
-                final RecordField recordField = fieldValue.getField();
-                if (recordField.getDataType().getFieldType() == RecordFieldType.RECORD) {
-                    final Object value = fieldValue.getValue();
-                    if (value instanceof Record) {
-                        recordFields.addAll(((Record) value).getSchema().getFields());
-                    }
-                } else {
-                    recordFields.add(recordField);
-                }
-            }
-        }
+        final List<RecordField> recordFields = record.getSchema().getFields(); // Data Record Path는 지원하지 않음
 
         final List<RecordField> missing = recordFields.stream()
                 .filter(field -> !schema.hasColumn(lowercaseFields ? field.getFieldName().toLowerCase() : field.getFieldName()))
