@@ -51,6 +51,76 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.*;
 @WritesAttribute(attribute = "record.count", description = "Kudu에 기록한 레코드 수")
 public class PutKudu extends AbstractKuduProcessor {
 
+    ///////////////////////////////////////////////
+    // Utility
+    ///////////////////////////////////////////////
+
+    /**
+     * JSON을 파싱하기 위한 Jackson Object Mapper
+     */
+    protected static final ObjectMapper mapper = new ObjectMapper();
+
+    ///////////////////////////////////////////////
+    // Counter
+    ///////////////////////////////////////////////
+
+    /**
+     * NiFi Web UI Summary에 표시하기 위한 키값
+     */
+    public static final String RECORD_COUNT_ATTR = "record.count";
+
+    ///////////////////////////////////////////////
+    // Validator
+    ///////////////////////////////////////////////
+
+    /**
+     * JSON 형식이 유효한지 검사하는 Validator
+     */
+    protected static final Validator JsonValidator = new JsonValidator();
+
+    /**
+     * Timestamp Pattern이 유효한지 검사하는 Validator
+     */
+    protected static final Validator timestampValidator = new TimestampValidator();
+
+    /**
+     * Kudu Operation Type이 유효한지 확인하는 Validator
+     */
+    protected static final Validator OperationTypeValidator = new Validator() {
+        @Override
+        public ValidationResult validate(String subject, String value, ValidationContext context) {
+            if (context.isExpressionLanguageSupported(subject) && context.isExpressionLanguagePresent(value)) {
+                return new ValidationResult.Builder().subject(subject).input(value).explanation("Expression Language 필요").valid(true).build();
+            }
+
+            boolean valid;
+            try {
+                OperationType.valueOf(value.toUpperCase());
+                valid = true;
+            } catch (IllegalArgumentException ex) {
+                valid = false;
+            }
+
+            final String explanation = valid ? null : "다음의 값중 하나가 되어야 합니다: " + Arrays.stream(OperationType.values()).map(Enum::toString).collect(Collectors.joining(", "));
+            return new ValidationResult.Builder().subject(subject).input(value).valid(valid).explanation(explanation).build();
+        }
+    };
+
+    ///////////////////////////////////////////////
+    // Allowable Value
+    ///////////////////////////////////////////////
+
+    static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure", "Route to Failure",
+            "The FlowFile containing the Records that failed to insert will be routed to the 'failure' relationship");
+
+    static final AllowableValue FAILURE_STRATEGY_ROLLBACK = new AllowableValue("rollback", "Rollback Session",
+            "If any Record cannot be inserted, all FlowFiles in the session will be rolled back to their input queue. This means that if data cannot be pushed, " +
+                    "it will block any subsequent data from be pushed to Kudu as well until the issue is resolved. However, this may be advantageous if a strict ordering is required.");
+
+    ///////////////////////////////////////////////
+    // Property
+    ///////////////////////////////////////////////
+
     public static final PropertyDescriptor RECORD_READER = new Builder()
             .name("record-reader")
             .displayName("Record Reader")
@@ -59,10 +129,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
-    public static final String RECORD_COUNT_ATTR = "record.count";
-    protected static final Validator JsonValidator = new JsonValidator();
-    protected static final Validator timestampValidator = new TimestampValidator();
-    protected static final ObjectMapper mapper = new ObjectMapper();
+
     protected static final PropertyDescriptor TABLE_NAME = new Builder()
             .name("kudu-table-name")
             .displayName("데이터를 저장할 Kudu 테이블명")
@@ -81,6 +148,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .addValidator(StandardValidators.INTEGER_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
+
     protected static final PropertyDescriptor LOWERCASE_FIELD_NAMES = new Builder()
             .name("use-lower-case")
             .displayName("소문자 필드명 사용")
@@ -90,6 +158,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .build();
+
     protected static final PropertyDescriptor HANDLE_SCHEMA_DRIFT = new Builder()
             .name("handle-schema-drift")
             .displayName("컬럼 누락시 컬럼 추가 처리")
@@ -99,27 +168,8 @@ public class PutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .build();
-    protected static final Validator OperationTypeValidator = new Validator() {
-        @Override
-        public ValidationResult validate(String subject, String value, ValidationContext context) {
-            if (context.isExpressionLanguageSupported(subject) && context.isExpressionLanguagePresent(value)) {
-                return new ValidationResult.Builder().subject(subject).input(value).explanation("Expression Language 필요").valid(true).build();
-            }
 
-            boolean valid;
-            try {
-                OperationType.valueOf(value.toUpperCase());
-                valid = true;
-            } catch (IllegalArgumentException ex) {
-                valid = false;
-            }
 
-            final String explanation = valid ? null :
-                    "다음의 값중 하나가 되어야 합니다: " + Arrays.stream(OperationType.values()).map(Enum::toString).collect(Collectors.joining(", "));
-            return new ValidationResult.Builder().subject(subject).input(value).valid(valid)
-                    .explanation(explanation).build();
-        }
-    };
     protected static final PropertyDescriptor INSERT_OPERATION = new Builder()
             .name("Insert Operation")
             .displayName("Kudu Operation 유형")
@@ -169,19 +219,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
-    protected static final Relationship REL_SUCCESS = new Relationship.Builder()
-            .name("success")
-            .description("FlowFile은 Kudu에 데이터가 성공적으로 저장된 후 이 관계로 라우팅됩니다.")
-            .build();
-    protected static final Relationship REL_FAILURE = new Relationship.Builder()
-            .name("failure")
-            .description("FlowFile을 Kudu에 저장할 수 없는 경우 이 관계로 라우팅됩니다.")
-            .build();
-    static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure", "Route to Failure",
-            "The FlowFile containing the Records that failed to insert will be routed to the 'failure' relationship");
-    static final AllowableValue FAILURE_STRATEGY_ROLLBACK = new AllowableValue("rollback", "Rollback Session",
-            "If any Record cannot be inserted, all FlowFiles in the session will be rolled back to their input queue. This means that if data cannot be pushed, " +
-                    "it will block any subsequent data from be pushed to Kudu as well until the issue is resolved. However, this may be advantageous if a strict ordering is required.");
+
     static final PropertyDescriptor FAILURE_STRATEGY = new Builder()
             .name("failure-strategy")
             .displayName("실패 처리 방법")
@@ -198,6 +236,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .addValidator(new RecordPathValidator())
             .expressionLanguageSupported(NONE)
             .build();
+
     static final PropertyDescriptor OPERATION_RECORD_PATH = new Builder()
             .name("operation-recordpath")
             .displayName("Operation RecordPath")
@@ -206,6 +245,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .addValidator(new RecordPathValidator())
             .expressionLanguageSupported(NONE)
             .build();
+
     static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
             .name("kudu-column-timestamp-patterns")
             .displayName("Timestamp 컬럼의 Timestamp Format(JSON 형식)")
@@ -225,15 +265,38 @@ public class PutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
 
+    ///////////////////////////////////////////////
+    // Relationship
+    ///////////////////////////////////////////////
+
+    protected static final Relationship REL_SUCCESS = new Relationship.Builder()
+            .name("success")
+            .description("FlowFile은 Kudu에 데이터가 성공적으로 저장된 후 이 관계로 라우팅됩니다.")
+            .build();
+    protected static final Relationship REL_FAILURE = new Relationship.Builder()
+            .name("failure")
+            .description("FlowFile을 Kudu에 저장할 수 없는 경우 이 관계로 라우팅됩니다.")
+            .build();
+
+    ///////////////////////////////////////////////
+    // onScheduled시 설정하는 값
+    ///////////////////////////////////////////////
+
     // Properties set in onScheduled.
     private volatile int batchSize = 100;
+
     private volatile int ffbatch = 1;
 
     private volatile int addHour = 0;
+
     private volatile SessionConfiguration.FlushMode flushMode;
+
     private volatile Function<Record, OperationType> recordPathOperationType;
+
     private volatile RecordPath dataRecordPath;
+
     private volatile String failureStrategy;
+
     private volatile boolean supportsInsertIgnoreOp;
 
     @Override
