@@ -11,22 +11,8 @@ import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.Optional;
 
-/**
- * Convert Object to java.sql.Timestamp using instanceof evaluation and optional format pattern for DateTimeFormatter
- */
 public class ObjectTimestampFieldConverter implements FieldConverter<Object, Timestamp> {
 
-    /**
-     * Convert Object field to java.sql.Timestamp using optional format supported in DateTimeFormatter
-     *
-     * @param field            Field can be null or a supported input type
-     * @param pattern          Format pattern optional for parsing
-     * @param name             Field name for tracking
-     * @param addHour          Hours to Add
-     * @param timestampPattern Timestamp Pattern
-     * @return Timestamp or null when input field is null or empty string
-     * @throws IllegalTypeConversionException Thrown on parsing failures or unsupported types of input fields
-     */
     @Override
     public Timestamp convertField(final Object field,
                                   final Optional<String> pattern,
@@ -73,13 +59,13 @@ public class ObjectTimestampFieldConverter implements FieldConverter<Object, Tim
                     final long number = Long.parseLong(string);
                     return new Timestamp(number);
                 } catch (final NumberFormatException e2) {
-                    final String message = String.format("Convert Field Name [%s] Value [%s] to Timestamp Long parsing failed: %s", name, field, e2.getMessage());
+                    final String message = String.format("필드명 [%s] 값 [%s]을 Timestamp로 변환할 수 없습니다: %s", name, field, e2.getMessage());
                     throw new IllegalTypeConversionException(message);
                 }
             }
         }
 
-        final String message = String.format("Convert Field Name [%s] Value [%s] Class [%s] to Timestamp not supported", name, field, field.getClass());
+        final String message = String.format("필드명 [%s] 값 [%s] 클래스 [%s]는 Timestamp로 변환을 지원하지 않습니다.", name, field, field.getClass());
         throw new IllegalTypeConversionException(message);
     }
 }
