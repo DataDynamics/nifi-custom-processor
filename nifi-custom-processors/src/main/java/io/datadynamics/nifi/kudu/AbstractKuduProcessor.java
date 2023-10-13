@@ -61,6 +61,7 @@ import java.util.function.Consumer;
 public abstract class AbstractKuduProcessor extends AbstractProcessor {
 
     static final PropertyDescriptor KUDU_MASTERS = new Builder()
+            .name("kudu-masters")
             .name("Kudu Masters")
             .description("연결할 Kudu Master 주소이며 쉼표로 나열할 수 있습니다.")
             .required(true)
@@ -125,20 +126,22 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
+
     /**
      * 기본 Kudu Client의 Worker Thread는 Core의 개수만큼 설정이 되므로 baremetal에서는 이 값을 낮춰서 설정해야 한다.
      */
-    private static final int DEFAULT_WORKER_COUNT = Runtime.getRuntime().availableProcessors();
+    private static final int DEFAULT_WORKER_COUNT = 4;
 
     static final PropertyDescriptor WORKER_COUNT = new Builder()
             .name("worker-count")
             .displayName("Kudu Client Worker 쓰레드 개수")
-            .description("Kudu 클라이언트 읽기 및 쓰기 작업을 처리하는 최대 작업자 스레드 수입니다. 기본적으로 사용 가능한 프로세서 수입니다.")
+            .description("Kudu 클라이언트 읽기 및 쓰기 작업을 처리하는 최대 작업자 스레드 수입니다. 기본적으로 사용 가능한 프로세서의 개수 입니다. 현재 사용가능한 프로세스의 개수: " + Runtime.getRuntime().availableProcessors())
             .required(true)
             .defaultValue(Integer.toString(DEFAULT_WORKER_COUNT))
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
             .build();
     private static final FieldConverter<Object, Timestamp> TIMESTAMP_FIELD_CONVERTER = new ObjectTimestampFieldConverter();
+
     /**
      * Timestamp Pattern overrides default RecordFieldType.TIMESTAMP pattern of yyyy-MM-dd HH:mm:ss with optional microseconds
      */
@@ -192,7 +195,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                 try {
                     this.kuduClient.close();
                 } catch (KuduException e) {
-                    getLogger().error("Couldn't close Kudu client.");
+                    getLogger().error("Kudu 클라이언트를 종료할 수 없습니다.");
                 }
             }
 
@@ -342,7 +345,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
     public void shutdown() throws Exception {
         try {
             if (this.kuduClient != null) {
-                getLogger().debug("Closing KuduClient");
+                getLogger().debug("Kudu 클라이언트를 종료하는 중입니다.");
                 this.kuduClient.close();
                 this.kuduClient = null;
             }
@@ -383,7 +386,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                 Object value = record.getValue(recordFieldName);
                 final Optional<DataType> fieldDataType = record.getSchema().getDataType(recordFieldName);
                 String dataTypeFormat = holder.getPattern(recordFieldName) == null ? fieldDataType.map(DataType::getFormat).orElse(null) : holder.getPattern(recordFieldName);
-                getLogger().info("{}", String.format("Record Field Name : {} ==> Type : {}, Date Format : {}", recordFieldName, colType, dataTypeFormat));
+                getLogger().debug("{}", String.format("Record Field Name : {} ==> Type : {}, Date Format : {}", recordFieldName, colType, dataTypeFormat));
                 switch (colType) {
                     case BOOL:
                         row.addBoolean(columnIndex, DataTypeUtils.toBoolean(value, recordFieldName));
@@ -408,7 +411,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                         } else {
                             optionalPattern = Optional.of(holder.getPattern(recordFieldName));
                         }
-                        getLogger().info("{}", String.format("[Timestamp] Record Field Name : {} ==> Type : {}, Date Format : {}", recordFieldName, colType, optionalPattern.get()));
+                        getLogger().debug("{}", String.format("[Timestamp] Record Field Name : {} ==> Type : {}, Date Format : {}", recordFieldName, colType, optionalPattern.get()));
                         final Timestamp timestamp = TIMESTAMP_FIELD_CONVERTER.convertField(value, optionalPattern, recordFieldName, addHour); // FIXED
                         row.addTimestamp(columnIndex, timestamp);
                         break;
@@ -435,7 +438,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                         row.addDate(columnIndex, getDate(value, recordFieldName, dateFormat));
                         break;
                     default:
-                        throw new IllegalStateException(String.format("unknown column type %s", colType));
+                        throw new IllegalStateException(String.format("'%s'은 알 수 없는 컬럼형", colType));
                 }
             }
         }
@@ -502,7 +505,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             case DATE:
                 return Type.DATE;
             default:
-                throw new IllegalArgumentException(String.format("unsupported type %s", nifiType));
+                throw new IllegalArgumentException(String.format("'%s'은 지원하지 않는 자료형", nifiType));
         }
     }
 
