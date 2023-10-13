@@ -262,14 +262,23 @@ public class PutKudu extends AbstractKuduProcessor {
             .addValidator(JsonValidator)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
-    //
     static final PropertyDescriptor DEFAULT_TIMESTAMP_PATTERN = new Builder()
             .name("default-timestamp-pattern")
-            .displayName("Timestamp 컬럼에 별도 파싱 패턴을 지정하지 않는 경우 사용하는 파싱 패턴입니다.")
+            .displayName("기본 날짜 패턴")
             .description("'Timestamp 컬럼의 Timestamp Format(JSON 형식)'으로 컬럼별 파싱 패턴을 지정하지 않으면 Timestamp 컬럼에 이 파상 패턴을 적용합니다.")
             .required(false)
             .defaultValue("yyyy-MM-dd HH:mm:ss.SSS")
             .addValidator(timestampValidator)
+            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
+            .build();
+
+    static final PropertyDescriptor ROW_LOGGING_COUNT = new Builder()
+            .name("row-logging-count")
+            .displayName("ROW 처리 로깅시 ROW 건수")
+            .description("ROW를 처리할때 특정 건수마다 로그를 출력합니다.")
+            .required(false)
+            .defaultValue("1000")
+            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
 
@@ -323,6 +332,7 @@ public class PutKudu extends AbstractKuduProcessor {
         properties.add(KERBEROS_PASSWORD);
         properties.add(CUSTOM_COLUMN_TIMESTAMP_PATTERNS);
         properties.add(DEFAULT_TIMESTAMP_PATTERN);
+        properties.add(ROW_LOGGING_COUNT);
         return properties;
     }
 
@@ -451,6 +461,7 @@ public class PutKudu extends AbstractKuduProcessor {
                                 final String defaultTimestampPatterns) {
 
         final RecordReaderFactory recordReaderFactory = context.getProperty(RECORD_READER).asControllerService(RecordReaderFactory.class);
+        int rowLoggingCount = context.getProperty(ROW_LOGGING_COUNT).evaluateAttributeExpressions().asInteger();
 
         int bufferedRecords = 0;
         OperationType prevOperationType = OperationType.INSERT;
@@ -487,6 +498,7 @@ public class PutKudu extends AbstractKuduProcessor {
                     }
                 }
 
+                int rowCount = 0;
                 recordReaderLoop:
                 while (record != null) {
                     final OperationType operationType = operationTypeFunction.apply(record);
@@ -533,6 +545,7 @@ public class PutKudu extends AbstractKuduProcessor {
                         // We keep track of mappings between Operations and their origins,
                         // so that we know which FlowFiles should be marked failure after buffered flush.
                         operationFlowFileMap.put(operation, flowFile);
+                        rowCount++;
 
                         // Flush mutation buffer of KuduSession to avoid "MANUAL_FLUSH is enabled
                         // but the buffer is too big" error. This can happen when flush mode is
@@ -553,10 +566,16 @@ public class PutKudu extends AbstractKuduProcessor {
 
                         bufferedRecords++;
                         processedRecords.merge(flowFile, 1, Integer::sum);
+
+                        if (rowCount % rowLoggingCount == 0) {
+                            getLogger().info("FlowFile {}은 현재 {}개 ROW를 처리하고 있습니다.", flowFile, rowCount);
+                        }
                     }
 
                     record = recordSet.next();
                 }
+
+                getLogger().info("FlowFile {}은 현재 {}개 ROW를 처리하였습니다.", flowFile, rowCount);
             } catch (Exception ex) {
                 getLogger().error("FlowFile {}을 Kudu에 저장할 수 없습니다.", new Object[]{flowFile}, ex);
                 flowFileFailures.put(flowFile, ex);
@@ -647,7 +666,7 @@ public class PutKudu extends AbstractKuduProcessor {
             if (rowErrors != null) {
                 rowErrors.forEach(rowError -> getLogger().error("Kudu에 저장할 수 없습니다. 에러: {}", rowError.toString()));
                 flowFile = session.putAttribute(flowFile, RECORD_COUNT_ATTR, Integer.toString(count - rowErrors.size()));
-                totalCount -= rowErrors.size(); // Don't include error rows in the the counter.
+                totalCount -= rowErrors.size(); // 카운터에 에러 ROW를 포함시키지 않는다.
                 session.transfer(flowFile, REL_FAILURE);
             } else {
                 flowFile = session.putAttribute(flowFile, RECORD_COUNT_ATTR, String.valueOf(count));
