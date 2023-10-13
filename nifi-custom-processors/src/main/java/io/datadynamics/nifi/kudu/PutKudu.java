@@ -127,11 +127,17 @@ public class PutKudu extends AbstractKuduProcessor {
     // Allowable Value
     ///////////////////////////////////////////////
 
-    static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure", "Route to Failure",
-            "The FlowFile containing the Records that failed to insert will be routed to the 'failure' relationship");
-    static final AllowableValue FAILURE_STRATEGY_ROLLBACK = new AllowableValue("rollback", "Rollback Session",
-            "If any Record cannot be inserted, all FlowFiles in the session will be rolled back to their input queue. This means that if data cannot be pushed, " +
-                    "it will block any subsequent data from be pushed to Kudu as well until the issue is resolved. However, this may be advantageous if a strict ordering is required.");
+    static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure",
+            "실패로 처리",
+            "The FlowFile containing the Records that failed to insert will be routed to the " +
+                    "'failure' relationship");
+    static final AllowableValue FAILURE_STRATEGY_ROLLBACK = new AllowableValue("rollback",
+            "세션 롤백",
+            "If any Record cannot be inserted, all FlowFiles in the session will be rolled back " +
+                    "to their input queue. This means that if data cannot be pushed, " +
+                    "it will block any subsequent data from be pushed to Kudu as well " +
+                    "until the issue is resolved. However, this may be advantageous " +
+                    "if a strict ordering is required.");
 
     ///////////////////////////////////////////////
     // Property
@@ -253,7 +259,6 @@ public class PutKudu extends AbstractKuduProcessor {
             .addValidator(new RecordPathValidator())
             .expressionLanguageSupported(NONE)
             .build();
-
     static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
             .name("kudu-column-timestamp-patterns")
             .displayName("Timestamp 컬럼의 Timestamp Format(JSON 형식)")
@@ -266,17 +271,16 @@ public class PutKudu extends AbstractKuduProcessor {
             .name("default-timestamp-pattern")
             .displayName("기본 날짜 패턴")
             .description("'Timestamp 컬럼의 Timestamp Format(JSON 형식)'으로 컬럼별 파싱 패턴을 지정하지 않으면 Timestamp 컬럼에 이 파상 패턴을 적용합니다.")
-            .required(false)
+            .required(true)
             .defaultValue("yyyy-MM-dd HH:mm:ss.SSS")
             .addValidator(timestampValidator)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
-
     static final PropertyDescriptor ROW_LOGGING_COUNT = new Builder()
             .name("row-logging-count")
             .displayName("ROW 처리 로깅시 ROW 건수")
-            .description("ROW를 처리할때 특정 건수마다 로그를 출력합니다.")
-            .required(false)
+            .description("ROW를 처리할때 특정 건수마다 로그를 출력합니다. 0으로 설정하는 경우 출력하지 않습니다.")
+            .required(true)
             .defaultValue("1000")
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
@@ -567,7 +571,7 @@ public class PutKudu extends AbstractKuduProcessor {
                         bufferedRecords++;
                         processedRecords.merge(flowFile, 1, Integer::sum);
 
-                        if (rowCount % rowLoggingCount == 0) {
+                        if (rowLoggingCount > 0 && (rowCount % rowLoggingCount == 0)) {
                             getLogger().info("FlowFile {}은 현재 {}개 ROW를 처리하고 있습니다.", flowFile, rowCount);
                         }
                     }
@@ -575,7 +579,9 @@ public class PutKudu extends AbstractKuduProcessor {
                     record = recordSet.next();
                 }
 
-                getLogger().info("FlowFile {}은 현재 {}개 ROW를 처리하였습니다.", flowFile, rowCount);
+                if (rowLoggingCount > 0) {
+                    getLogger().info("FlowFile {}은 현재 {}개 ROW를 처리하였습니다.", flowFile, rowCount);
+                }
             } catch (Exception ex) {
                 getLogger().error("FlowFile {}을 Kudu에 저장할 수 없습니다.", new Object[]{flowFile}, ex);
                 flowFileFailures.put(flowFile, ex);
