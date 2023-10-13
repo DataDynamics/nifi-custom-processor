@@ -1,6 +1,7 @@
 package io.datadynamics.nifi.kudu;
 
 import org.apache.nifi.serialization.record.util.IllegalTypeConversionException;
+import org.apache.nifi.util.StringUtils;
 
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -14,17 +15,24 @@ import java.util.Optional;
  * Convert Object to java.sql.Timestamp using instanceof evaluation and optional format pattern for DateTimeFormatter
  */
 public class ObjectTimestampFieldConverter implements FieldConverter<Object, Timestamp> {
+
     /**
      * Convert Object field to java.sql.Timestamp using optional format supported in DateTimeFormatter
      *
-     * @param field   Field can be null or a supported input type
-     * @param pattern Format pattern optional for parsing
-     * @param name    Field name for tracking
+     * @param field            Field can be null or a supported input type
+     * @param pattern          Format pattern optional for parsing
+     * @param name             Field name for tracking
+     * @param addHour          Hours to Add
+     * @param timestampPattern Timestamp Pattern
      * @return Timestamp or null when input field is null or empty string
      * @throws IllegalTypeConversionException Thrown on parsing failures or unsupported types of input fields
      */
     @Override
-    public Timestamp convertField(final Object field, final Optional<String> pattern, final String name, final int addHour) {
+    public Timestamp convertField(final Object field,
+                                  final Optional<String> pattern,
+                                  final String name,
+                                  final int addHour,
+                                  String timestampPattern) {
         if (field == null) {
             return null;
         }
@@ -45,10 +53,10 @@ public class ObjectTimestampFieldConverter implements FieldConverter<Object, Tim
                 return null;
             }
 
-            if (pattern.isPresent()) {
-                final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern.get());
+            if (!StringUtils.isEmpty(timestampPattern)) {
+                final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(timestampPattern);
                 try {
-                    // FIXED
+                    // 날짜 패턴으로 데이터를 파싱하고 AddHour를 추가한다.
                     final LocalDateTime localDateTime = LocalDateTime.parse(string, formatter);
                     if (addHour != 0) {
                         LocalDateTime plus = localDateTime.plus(Duration.ofHours(addHour));

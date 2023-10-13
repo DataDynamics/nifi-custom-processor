@@ -61,6 +61,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .build();
     public static final String RECORD_COUNT_ATTR = "record.count";
     protected static final Validator JsonValidator = new JsonValidator();
+    protected static final Validator timestampValidator = new TimestampValidator();
     protected static final ObjectMapper mapper = new ObjectMapper();
     protected static final PropertyDescriptor TABLE_NAME = new Builder()
             .name("kudu-table-name")
@@ -207,11 +208,21 @@ public class PutKudu extends AbstractKuduProcessor {
             .build();
     static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
             .name("kudu-column-timestamp-patterns")
-            .displayName("Timestamp 컬럼의 Timestamp Format을 적용합니다. 입력값은 JSON 형식입니다.")
+            .displayName("Timestamp 컬럼의 Timestamp Format(JSON 형식)")
             .description("Timestamp 컬럼에 Timestamp Format을 별도로 지정할 수 있습니다. Timestamp Format은 microseconds까지만 지원합니다.")
             .required(false)
             .addValidator(JsonValidator)
-            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .build();
+    //
+    static final PropertyDescriptor DEFAULT_TIMESTAMP_PATTERN = new Builder()
+            .name("default-timestamp-pattern")
+            .displayName("Timestamp 컬럼에 별도 파싱 패턴을 지정하지 않는 경우 사용하는 파싱 패턴입니다.")
+            .description("'Timestamp 컬럼의 Timestamp Format(JSON 형식)'으로 컬럼별 파싱 패턴을 지정하지 않으면 Timestamp 컬럼에 이 파상 패턴을 적용합니다.")
+            .required(false)
+            .defaultValue("yyyy-MM-dd HH:mm:ss.SSS")
+            .addValidator(timestampValidator)
+            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
 
     // Properties set in onScheduled.
@@ -244,13 +255,13 @@ public class PutKudu extends AbstractKuduProcessor {
         properties.add(WORKER_COUNT);
         properties.add(ADD_HOUR);
         properties.add(KUDU_OPERATION_TIMEOUT_MS);
-        properties.add(KUDU_KEEP_ALIVE_PERIOD_TIMEOUT_MS);
         properties.add(KUDU_SASL_PROTOCOL_NAME);
         properties.add(KERBEROS_USER_SERVICE);
         properties.add(KERBEROS_CREDENTIALS_SERVICE);
         properties.add(KERBEROS_PRINCIPAL);
         properties.add(KERBEROS_PASSWORD);
         properties.add(CUSTOM_COLUMN_TIMESTAMP_PATTERNS);
+        properties.add(DEFAULT_TIMESTAMP_PATTERN);
         return properties;
     }
 
@@ -296,8 +307,11 @@ public class PutKudu extends AbstractKuduProcessor {
             return;
         }
 
+        // Timestamp 컬럼을 위해서 Timestamp Format(Pattern)을 지정한 JSON을 로딩한다. 이 파라마터는 FlowFile Attribute를 지원한다.
         String customTimestampPatterns = context.getProperty(CUSTOM_COLUMN_TIMESTAMP_PATTERNS).evaluateAttributeExpressions().getValue();
-        getLogger().info("Custom Timestamp Format : \n{}", customTimestampPatterns);
+        String defaultTimestampPatterns = context.getProperty(DEFAULT_TIMESTAMP_PATTERN).evaluateAttributeExpressions().getValue();
+        getLogger().info("지정한 Timestamp 패턴(포맷) JSON : \n{}", customTimestampPatterns);
+        getLogger().info("기본 Timestamp 패턴(포맷) : {}", defaultTimestampPatterns);
 
         TimestampFormatHolder holder = null;
         if (!StringUtils.isEmpty(customTimestampPatterns)) {
@@ -314,12 +328,12 @@ public class PutKudu extends AbstractKuduProcessor {
 
         final KerberosUser user = getKerberosUser();
         if (user == null) {
-            executeOnKuduClient(kuduClient -> processFlowFiles(context, session, flowFiles, kuduClient, finalHolder));
+            executeOnKuduClient(kuduClient -> processFlowFiles(context, session, flowFiles, kuduClient, finalHolder, defaultTimestampPatterns));
             return;
         }
 
         final PrivilegedExceptionAction<Void> privilegedAction = () -> {
-            executeOnKuduClient(kuduClient -> processFlowFiles(context, session, flowFiles, kuduClient, finalHolder));
+            executeOnKuduClient(kuduClient -> processFlowFiles(context, session, flowFiles, kuduClient, finalHolder, defaultTimestampPatterns));
             return null;
         };
 
@@ -327,7 +341,7 @@ public class PutKudu extends AbstractKuduProcessor {
         action.execute();
     }
 
-    private void processFlowFiles(final ProcessContext context, final ProcessSession session, final List<FlowFile> flowFiles, final KuduClient kuduClient, TimestampFormatHolder holder) {
+    private void processFlowFiles(final ProcessContext context, final ProcessSession session, final List<FlowFile> flowFiles, final KuduClient kuduClient, TimestampFormatHolder holder, String defaultTimestampPatterns) {
         final Map<FlowFile, Integer> processedRecords = new HashMap<>();
         final Map<FlowFile, Object> flowFileFailures = new HashMap<>();
         final Map<Operation, FlowFile> operationFlowFileMap = new HashMap<>();
@@ -344,7 +358,8 @@ public class PutKudu extends AbstractKuduProcessor {
                     context,
                     kuduClient,
                     kuduSession,
-                    holder);
+                    holder,
+                    defaultTimestampPatterns);
         } finally {
             try {
                 flushKuduSession(kuduSession, true, pendingRowErrors);
@@ -371,7 +386,8 @@ public class PutKudu extends AbstractKuduProcessor {
                                 final ProcessContext context,
                                 final KuduClient kuduClient,
                                 final KuduSession kuduSession,
-                                final TimestampFormatHolder holder) {
+                                final TimestampFormatHolder holder,
+                                final String defaultTimestampPatterns) {
 
         final RecordReaderFactory recordReaderFactory = context.getProperty(RECORD_READER).asControllerService(RecordReaderFactory.class);
 
@@ -397,15 +413,15 @@ public class PutKudu extends AbstractKuduProcessor {
                 final RecordSet recordSet = recordReader.createRecordSet();
                 KuduTable kuduTable = kuduClient.openTable(tableName);
 
-                // Get the first record so that we can evaluate the Kudu table for Schema drift.
+                // Schema Drift를 처리하기 첫번째 레코드로 Kudu 테이블을 평가한다.
                 Record record = recordSet.next();
 
-                // If handleSchemaDrift is true, check for any missing columns and alter the Kudu table to add them.
+                // handleSchemaDrift가 true면, 누락된 컬럼을 확인하여 Kudu 테이블에 컬럼을 추가한다.
                 if (handleSchemaDrift) {
                     final boolean driftDetected = handleSchemaDrift(kuduTable, kuduClient, flowFile, record, lowercaseFields);
 
                     if (driftDetected) {
-                        // Re-open the table to get the new schema.
+                        // 새로운 Schema를 위해서 테이블을 오픈한다.
                         kuduTable = kuduClient.openTable(tableName);
                     }
                 }
@@ -427,8 +443,7 @@ public class PutKudu extends AbstractKuduProcessor {
                         for (final FieldValue fieldValue : fieldValues) {
                             final RecordFieldType fieldType = fieldValue.getField().getDataType().getFieldType();
                             if (fieldType != RecordFieldType.RECORD) {
-                                throw new ProcessException("RecordPath " + dataRecordPath.getPath() + " evaluated against Record expected to return one or more Records but encountered field of type" +
-                                        " " + fieldType);
+                                throw new ProcessException("RecordPath " + dataRecordPath.getPath() + " evaluated against Record expected to return one or more Records but encountered field of type " + fieldType);
                             }
                         }
 
@@ -453,7 +468,7 @@ public class PutKudu extends AbstractKuduProcessor {
                         prevOperationType = operationType;
 
                         final List<String> fieldNames = dataRecord.getSchema().getFieldNames();
-                        Operation operation = createKuduOperation(operationType, dataRecord, fieldNames, ignoreNull, lowercaseFields, kuduTable, holder);
+                        Operation operation = createKuduOperation(operationType, dataRecord, fieldNames, ignoreNull, lowercaseFields, kuduTable, holder, defaultTimestampPatterns);
                         // We keep track of mappings between Operations and their origins,
                         // so that we know which FlowFiles should be marked failure after buffered flush.
                         operationFlowFileMap.put(operation, flowFile);
@@ -466,11 +481,11 @@ public class PutKudu extends AbstractKuduProcessor {
                             flushKuduSession(kuduSession, false, pendingRowErrors);
                         }
 
-                        // OperationResponse is returned only when flush mode is set to AUTO_FLUSH_SYNC
+                        // Flush 모드가 AUTO_FLUSH_SYNC인 경우에만 OperationResponse을 반환합니다.
                         OperationResponse response = kuduSession.apply(operation);
                         if (response != null && response.hasRowError()) {
-                            // Stop processing the records on the first error.
-                            // Note that Kudu does not support rolling back of previous operations.
+                            // 첫 에러 발생시 레코드 처리를 중지합니다.
+                            // Kudu는 이전 Operation에 대해서 롤백 기능을 지원하지 않습니다.
                             flowFileFailures.put(flowFile, response.getRowError());
                             break recordReaderLoop;
                         }
@@ -482,7 +497,7 @@ public class PutKudu extends AbstractKuduProcessor {
                     record = recordSet.next();
                 }
             } catch (Exception ex) {
-                getLogger().error("Failed to push {} to Kudu", new Object[]{flowFile}, ex);
+                getLogger().error("FlowFile {}을 Kudu에 저장할 수 없습니다.", new Object[]{flowFile}, ex);
                 flowFileFailures.put(flowFile, ex);
             }
         }
@@ -490,7 +505,7 @@ public class PutKudu extends AbstractKuduProcessor {
 
     private boolean handleSchemaDrift(final KuduTable kuduTable, final KuduClient kuduClient, final FlowFile flowFile, final Record record, final boolean lowercaseFields) {
         if (record == null) {
-            getLogger().debug("No Record to evaluate schema drift against for {}", flowFile);
+            getLogger().debug("FlowFile {}에는 Schema Drift를 처리할 레코드가 없습니다.", flowFile);
             return false;
         }
 
@@ -523,23 +538,22 @@ public class PutKudu extends AbstractKuduProcessor {
                 .collect(Collectors.toList());
 
         if (missing.isEmpty()) {
-            getLogger().debug("No schema drift detected for {}", flowFile);
+            getLogger().debug("FlowFile {}에서 탐지한 Schema Drift가 없습니다.", flowFile);
             return false;
         }
 
-        getLogger().info("Adding {} columns to table '{}' to handle schema drift", missing.size(), tableName);
+        getLogger().info("Schema Drift를 처리하기 위해서 테이블 '{}'에 {}개의 컬럼을 추가합니다.", tableName, missing.size());
 
-        // Add each column one at a time to avoid failing if some of the missing columns
-        // we created by a concurrent thread or application attempting to handle schema drift.
+        // 존재하지 않는 컬럼이 다수 존재한다면 실패 처리를 회피하기 위해서동시에 각 컬럼을 추가한다.
+        // 동시에 처리하는 쓰레드 또는 애플리케이션이 Schema Drift 처리를 시도하는 것을 고려하여 생성함.
         for (final RecordField field : missing) {
             try {
                 final String columnName = lowercaseFields ? field.getFieldName().toLowerCase() : field.getFieldName();
                 kuduClient.alterTable(tableName, getAddNullableColumnStatement(columnName, field.getDataType()));
             } catch (final KuduException e) {
-                // Ignore the exception if the column already exists due to concurrent
-                // threads or applications attempting to handle schema drift.
+                // 동시에 쓰레드 또는 애플리케이션에서 Schema Drift를 처리하므로 이미 컬럼이 존재한다면 에러가 발생하고 이 경우 무시한다.
                 if (e.getStatus().isAlreadyPresent()) {
-                    getLogger().info("Column already exists in table '{}' while handling schema drift", tableName);
+                    getLogger().info("Schema Drift를 처리하고 있는 중 테이블 '{}'에 이미 컬럼이 존재하는 상태입니다.", tableName);
                 } else {
                     throw new ProcessException(e);
                 }
@@ -555,7 +569,8 @@ public class PutKudu extends AbstractKuduProcessor {
                                    final Map<Operation, FlowFile> operationFlowFileMap,
                                    final List<RowError> pendingRowErrors,
                                    final ProcessSession session) {
-        // Find RowErrors for each FlowFile
+        // 각 FlowFile 마다 RowError를 확인한다.
+        // RowError가 많다면 Heap을 많이 소진할 수 있다.
         final Map<FlowFile, List<RowError>> flowFileRowErrors = pendingRowErrors.stream()
                 .filter(e -> operationFlowFileMap.get(e.getOperation()) != null)
                 .collect(
@@ -569,7 +584,7 @@ public class PutKudu extends AbstractKuduProcessor {
             final List<RowError> rowErrors = flowFileRowErrors.get(flowFile);
 
             if (rowErrors != null) {
-                rowErrors.forEach(rowError -> getLogger().error("Failed to write due to {}", rowError.toString()));
+                rowErrors.forEach(rowError -> getLogger().error("Kudu에 저장할 수 없습니다. 에러: {}", rowError.toString()));
                 flowFile = session.putAttribute(flowFile, RECORD_COUNT_ATTR, Integer.toString(count - rowErrors.size()));
                 totalCount -= rowErrors.size(); // Don't include error rows in the the counter.
                 session.transfer(flowFile, REL_FAILURE);
@@ -577,16 +592,17 @@ public class PutKudu extends AbstractKuduProcessor {
                 flowFile = session.putAttribute(flowFile, RECORD_COUNT_ATTR, String.valueOf(count));
 
                 if (flowFileFailures.containsKey(flowFile)) {
-                    getLogger().error("Failed to write due to {}", flowFileFailures.get(flowFile));
+                    getLogger().error("FlowFile '{}'을 Kudu에 저장할 수 없습니다.", flowFileFailures.get(flowFile));
                     session.transfer(flowFile, REL_FAILURE);
                 } else {
                     session.transfer(flowFile, REL_SUCCESS);
-                    session.getProvenanceReporter().send(flowFile, "Successfully added FlowFile to Kudu");
+                    session.getProvenanceReporter().send(flowFile, "FlowFile을 Kudu에 성공적으로 저장했습니다.");
                 }
             }
         }
 
-        session.adjustCounter("Records Inserted", totalCount, false);
+        // NiFi UI에 해당 지표로 건수를 표시한다.
+        session.adjustCounter("추가한 레코드수", totalCount, false);
     }
 
     private void logFailures(final List<RowError> pendingRowErrors, final Map<Operation, FlowFile> operationFlowFileMap) {
@@ -597,18 +613,21 @@ public class PutKudu extends AbstractKuduProcessor {
             final FlowFile flowFile = entry.getKey();
             final List<RowError> errors = entry.getValue();
 
-            getLogger().error("Could not write {} to Kudu due to: {}", flowFile, errors);
+            getLogger().error("Kudu에 FlowFile {}을 기록할 수 없습니다. 에러: {}", flowFile, errors);
         }
     }
 
     private String getEvaluatedProperty(PropertyDescriptor property, ProcessContext context, FlowFile flowFile) {
         PropertyValue evaluatedProperty = context.getProperty(property).evaluateAttributeExpressions(flowFile);
         if (property.isRequired() && evaluatedProperty == null) {
-            throw new ProcessException(String.format("Property `%s` is required but evaluated to null", property.getDisplayName()));
+            throw new ProcessException(String.format("속성 `%s`은 필수로 지정해야 합니다. NULL값은 해석할 수 없습니다.", property.getDisplayName()));
         }
         return evaluatedProperty.getValue();
     }
 
+    /**
+     * Kudu 세션을 생성한다.
+     */
     protected KuduSession createKuduSession(final KuduClient client) {
         final KuduSession kuduSession = client.newSession();
         kuduSession.setMutationBufferSpace(batchSize);
@@ -616,17 +635,24 @@ public class PutKudu extends AbstractKuduProcessor {
         return kuduSession;
     }
 
-    protected Operation createKuduOperation(OperationType operationType, Record record,
-                                            List<String> fieldNames, boolean ignoreNull,
-                                            boolean lowercaseFields, KuduTable kuduTable, TimestampFormatHolder holder) {
+    /**
+     * 지정한 Kudu Operation Type에 맞는 Kudu Operation을 생성한다.
+     */
+    protected Operation createKuduOperation(OperationType operationType,
+                                            Record record,
+                                            List<String> fieldNames,
+                                            boolean ignoreNull,
+                                            boolean lowercaseFields,
+                                            KuduTable kuduTable,
+                                            TimestampFormatHolder holder,
+                                            String defaultTimestampPatterns) {
         Operation operation;
         switch (operationType) {
             case INSERT:
                 operation = kuduTable.newInsert();
                 break;
             case INSERT_IGNORE:
-                // If the target Kudu cluster does not support ignore operations use an insert.
-                // The legacy session based insert ignore will be used instead.
+                // Kudu Cluster가 Insert Ignore를 지원하지 않으면 Insert를 사용한다.
                 if (!supportsInsertIgnoreOp) {
                     operation = kuduTable.newInsert();
                 } else {
@@ -649,9 +675,9 @@ public class PutKudu extends AbstractKuduProcessor {
                 operation = kuduTable.newDeleteIgnore();
                 break;
             default:
-                throw new IllegalArgumentException(String.format("OperationType: %s not supported by Kudu", operationType));
+                throw new IllegalArgumentException(String.format("Kudu Operation 유형 '%s'을 Kudu에서 지원하지 않습니다.", operationType));
         }
-        buildPartialRow(kuduTable.getSchema(), operation.getRow(), record, fieldNames, ignoreNull, lowercaseFields, addHour, holder);
+        buildPartialRow(kuduTable.getSchema(), operation.getRow(), record, fieldNames, ignoreNull, lowercaseFields, addHour, holder, defaultTimestampPatterns);
         return operation;
     }
 
