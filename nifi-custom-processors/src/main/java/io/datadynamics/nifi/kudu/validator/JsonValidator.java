@@ -1,4 +1,4 @@
-package io.datadynamics.nifi.kudu;
+package io.datadynamics.nifi.kudu.validator;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.nifi.components.ValidationContext;

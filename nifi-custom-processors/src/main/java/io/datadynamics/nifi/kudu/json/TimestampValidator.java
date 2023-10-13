@@ -1,4 +1,4 @@
-package io.datadynamics.nifi.kudu;
+package io.datadynamics.nifi.kudu.json;
 
 import org.apache.nifi.components.ValidationContext;
 import org.apache.nifi.components.ValidationResult;

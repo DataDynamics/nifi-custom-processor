@@ -2,6 +2,8 @@ package io.datadynamics.nifi.kudu;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.datadynamics.nifi.kudu.json.TimestampFormat;
+import io.datadynamics.nifi.kudu.json.TimestampFormats;
 import org.junit.Assert;
 import org.junit.Test;
 

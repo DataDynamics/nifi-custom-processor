@@ -1,6 +1,10 @@
 package io.datadynamics.nifi.kudu;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.datadynamics.nifi.kudu.json.TimestampFormatHolder;
+import io.datadynamics.nifi.kudu.json.TimestampFormats;
+import io.datadynamics.nifi.kudu.json.TimestampValidator;
+import io.datadynamics.nifi.kudu.validator.JsonValidator;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.*;
 import org.apache.nifi.annotation.behavior.*;

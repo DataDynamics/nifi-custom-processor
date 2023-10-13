@@ -1,4 +1,4 @@
-package io.datadynamics.nifi.kudu;
+package io.datadynamics.nifi.kudu.json;
 
 import java.util.HashMap;
 import java.util.List;

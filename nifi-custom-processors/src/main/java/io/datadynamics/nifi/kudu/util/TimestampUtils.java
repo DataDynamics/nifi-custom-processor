@@ -1,4 +1,4 @@
-package io.datadynamics.nifi.kudu;
+package io.datadynamics.nifi.kudu.util;
 
 import java.sql.Timestamp;
 import java.text.DateFormat;
