@@ -48,8 +48,6 @@ import java.util.function.Consumer;
 
 public abstract class AbstractKuduProcessor extends AbstractProcessor {
 
-    Logger logger = LoggerFactory.getLogger(AbstractProcessor.class);
-
     static final PropertyDescriptor KUDU_MASTERS = new Builder()
             .name("kudu-masters")
             .name("Kudu Masters")
@@ -58,7 +56,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
-
     static final PropertyDescriptor KERBEROS_CREDENTIALS_SERVICE = new Builder()
             .name("kerberos-credentials-service")
             .displayName("Kerberos Credentials Service")
@@ -66,7 +63,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .required(false)
             .identifiesControllerService(KerberosCredentialsService.class)
             .build();
-
     static final PropertyDescriptor KERBEROS_USER_SERVICE = new PropertyDescriptor.Builder()
             .name("kerberos-user-service")
             .displayName("Kerberos User Service")
@@ -74,7 +70,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .identifiesControllerService(KerberosUserService.class)
             .required(false)
             .build();
-
     static final PropertyDescriptor KERBEROS_PRINCIPAL = new PropertyDescriptor.Builder()
             .name("kerberos-principal")
             .displayName("Kerberos Principal")
@@ -85,7 +80,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.createAttributeExpressionLanguageValidator(AttributeExpression.ResultType.STRING))
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build(); // TODO
-
     static final PropertyDescriptor KERBEROS_PASSWORD = new PropertyDescriptor.Builder()
             .name("kerberos-password")
             .displayName("Kerberos Password")
@@ -94,7 +88,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .sensitive(true)
             .build();
-
     static final PropertyDescriptor KUDU_OPERATION_TIMEOUT_MS = new Builder()
             .name("kudu-operations-timeout-ms")
             .displayName("Kudu Operation Timeout")
@@ -104,7 +97,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
-
     static final PropertyDescriptor KUDU_SASL_PROTOCOL_NAME = new Builder()
             .name("kudu-sasl-protocol-name")
             .displayName("Kudu SASL 프로토콜명")
@@ -114,26 +106,20 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
-
     /**
      * 기본 Kudu Client의 Worker Thread는 Core의 개수만큼 설정이 되므로 baremetal에서는 이 값을 낮춰서 설정해야 한다.
      */
     private static final int DEFAULT_WORKER_COUNT = 4;
-
     static final PropertyDescriptor WORKER_COUNT = new Builder().name("worker-count").displayName("Kudu Client Worker 쓰레드 개수").description("Kudu 클라이언트 읽기 및 쓰기 작업을 처리하는 최대 작업자 스레드 수입니다. 기본적으로 사용 가능한 프로세서의 개수 입니다. 현재 사용가능한 프로세스의 개수: " + Runtime.getRuntime().availableProcessors()).required(true).defaultValue(Integer.toString(DEFAULT_WORKER_COUNT)).addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR).build();
     private static final FieldConverter<Object, Timestamp> TIMESTAMP_FIELD_CONVERTER = new ObjectTimestampFieldConverter();
-
     /**
      * Timestamp Pattern overrides default RecordFieldType.TIMESTAMP pattern of yyyy-MM-dd HH:mm:ss with optional microseconds
      */
     private static final String MICROSECOND_TIMESTAMP_PATTERN = "yyyy-MM-dd HH:mm:ss[.SSSSSS]";
-
     private final ReadWriteLock kuduClientReadWriteLock = new ReentrantReadWriteLock();
-
     private final Lock kuduClientReadLock = kuduClientReadWriteLock.readLock();
-
     private final Lock kuduClientWriteLock = kuduClientReadWriteLock.writeLock();
-
+    Logger logger = LoggerFactory.getLogger(AbstractProcessor.class);
     private volatile KuduClient kuduClient;
 
     private volatile KerberosUser kerberosUser;

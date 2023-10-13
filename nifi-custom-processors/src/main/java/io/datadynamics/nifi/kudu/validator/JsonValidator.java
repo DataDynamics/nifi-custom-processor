@@ -7,7 +7,7 @@ import org.apache.nifi.components.Validator;
 
 public class JsonValidator implements Validator {
 
-    private ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public ValidationResult validate(String subject, String value, ValidationContext context) {

@@ -3,8 +3,8 @@ package io.datadynamics.nifi.kudu;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datadynamics.nifi.kudu.json.TimestampFormatHolder;
 import io.datadynamics.nifi.kudu.json.TimestampFormats;
-import io.datadynamics.nifi.kudu.validator.TimestampValidator;
 import io.datadynamics.nifi.kudu.validator.JsonValidator;
+import io.datadynamics.nifi.kudu.validator.TimestampValidator;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.*;
 import org.apache.nifi.annotation.behavior.*;
@@ -60,33 +60,41 @@ public class PutKudu extends AbstractKuduProcessor {
     ///////////////////////////////////////////////
 
     /**
-     * JSON을 파싱하기 위한 Jackson Object Mapper
-     */
-    protected static final ObjectMapper mapper = new ObjectMapper();
-
-    ///////////////////////////////////////////////
-    // Counter
-    ///////////////////////////////////////////////
-
-    /**
      * NiFi Web UI Summary에 표시하기 위한 키값
      */
     public static final String RECORD_COUNT_ATTR = "record.count";
 
     ///////////////////////////////////////////////
+    // Counter
+    ///////////////////////////////////////////////
+    public static final PropertyDescriptor RECORD_READER = new Builder()
+            .name("record-reader")
+            .displayName("Record Reader")
+            .description("FlowFile의 레코드를 읽기 위한 Record Reader 서비스를 지정하십시오.")
+            .identifiesControllerService(RecordReaderFactory.class)
+            .required(true)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
+
+    ///////////////////////////////////////////////
     // Validator
     ///////////////////////////////////////////////
-
+    /**
+     * JSON을 파싱하기 위한 Jackson Object Mapper
+     */
+    protected static final ObjectMapper mapper = new ObjectMapper();
     /**
      * JSON 형식이 유효한지 검사하는 Validator
      */
     protected static final Validator JsonValidator = new JsonValidator();
-
     /**
      * Timestamp Pattern이 유효한지 검사하는 Validator
      */
     protected static final Validator timestampValidator = new TimestampValidator();
 
+    ///////////////////////////////////////////////
+    // Allowable Value
+    ///////////////////////////////////////////////
     /**
      * Kudu Operation Type이 유효한지 확인하는 Validator
      */
@@ -109,31 +117,6 @@ public class PutKudu extends AbstractKuduProcessor {
             return new ValidationResult.Builder().subject(subject).input(value).valid(valid).explanation(explanation).build();
         }
     };
-
-    ///////////////////////////////////////////////
-    // Allowable Value
-    ///////////////////////////////////////////////
-
-    static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure", "Route to Failure",
-            "The FlowFile containing the Records that failed to insert will be routed to the 'failure' relationship");
-
-    static final AllowableValue FAILURE_STRATEGY_ROLLBACK = new AllowableValue("rollback", "Rollback Session",
-            "If any Record cannot be inserted, all FlowFiles in the session will be rolled back to their input queue. This means that if data cannot be pushed, " +
-                    "it will block any subsequent data from be pushed to Kudu as well until the issue is resolved. However, this may be advantageous if a strict ordering is required.");
-
-    ///////////////////////////////////////////////
-    // Property
-    ///////////////////////////////////////////////
-
-    public static final PropertyDescriptor RECORD_READER = new Builder()
-            .name("record-reader")
-            .displayName("Record Reader")
-            .description("FlowFile의 레코드를 읽기 위한 Record Reader 서비스를 지정하십시오.")
-            .identifiesControllerService(RecordReaderFactory.class)
-            .required(true)
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .build();
-
     protected static final PropertyDescriptor TABLE_NAME = new Builder()
             .name("kudu-table-name")
             .displayName("데이터를 저장할 Kudu 테이블명")
@@ -143,6 +126,9 @@ public class PutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
 
+    ///////////////////////////////////////////////
+    // Property
+    ///////////////////////////////////////////////
     protected static final PropertyDescriptor ADD_HOUR = new Builder()
             .name("add-hour-to-timestamp-column")
             .displayName("Timestamp 컬럼에 시간 추가")
@@ -152,7 +138,6 @@ public class PutKudu extends AbstractKuduProcessor {
             .addValidator(StandardValidators.INTEGER_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
-
     protected static final PropertyDescriptor LOWERCASE_FIELD_NAMES = new Builder()
             .name("use-lower-case")
             .displayName("소문자 필드명 사용")
@@ -162,7 +147,6 @@ public class PutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .build();
-
     protected static final PropertyDescriptor HANDLE_SCHEMA_DRIFT = new Builder()
             .name("handle-schema-drift")
             .displayName("컬럼 누락시 컬럼 추가 처리")
@@ -172,8 +156,6 @@ public class PutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .build();
-
-
     protected static final PropertyDescriptor INSERT_OPERATION = new Builder()
             .name("Insert Operation")
             .displayName("Kudu Operation 유형")
@@ -223,7 +205,19 @@ public class PutKudu extends AbstractKuduProcessor {
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
-
+    protected static final Relationship REL_SUCCESS = new Relationship.Builder()
+            .name("success")
+            .description("FlowFile은 Kudu에 데이터가 성공적으로 저장된 후 이 관계로 라우팅됩니다.")
+            .build();
+    protected static final Relationship REL_FAILURE = new Relationship.Builder()
+            .name("failure")
+            .description("FlowFile을 Kudu에 저장할 수 없는 경우 이 관계로 라우팅됩니다.")
+            .build();
+    static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure", "Route to Failure",
+            "The FlowFile containing the Records that failed to insert will be routed to the 'failure' relationship");
+    static final AllowableValue FAILURE_STRATEGY_ROLLBACK = new AllowableValue("rollback", "Rollback Session",
+            "If any Record cannot be inserted, all FlowFiles in the session will be rolled back to their input queue. This means that if data cannot be pushed, " +
+                    "it will block any subsequent data from be pushed to Kudu as well until the issue is resolved. However, this may be advantageous if a strict ordering is required.");
     static final PropertyDescriptor FAILURE_STRATEGY = new Builder()
             .name("failure-strategy")
             .displayName("실패 처리 방법")
@@ -240,7 +234,6 @@ public class PutKudu extends AbstractKuduProcessor {
             .addValidator(new RecordPathValidator())
             .expressionLanguageSupported(NONE)
             .build();
-
     static final PropertyDescriptor OPERATION_RECORD_PATH = new Builder()
             .name("operation-recordpath")
             .displayName("Operation RecordPath")
@@ -250,6 +243,9 @@ public class PutKudu extends AbstractKuduProcessor {
             .expressionLanguageSupported(NONE)
             .build();
 
+    ///////////////////////////////////////////////
+    // Relationship
+    ///////////////////////////////////////////////
     static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
             .name("kudu-column-timestamp-patterns")
             .displayName("Timestamp 컬럼의 Timestamp Format(JSON 형식)")
@@ -270,22 +266,8 @@ public class PutKudu extends AbstractKuduProcessor {
             .build();
 
     ///////////////////////////////////////////////
-    // Relationship
-    ///////////////////////////////////////////////
-
-    protected static final Relationship REL_SUCCESS = new Relationship.Builder()
-            .name("success")
-            .description("FlowFile은 Kudu에 데이터가 성공적으로 저장된 후 이 관계로 라우팅됩니다.")
-            .build();
-    protected static final Relationship REL_FAILURE = new Relationship.Builder()
-            .name("failure")
-            .description("FlowFile을 Kudu에 저장할 수 없는 경우 이 관계로 라우팅됩니다.")
-            .build();
-
-    ///////////////////////////////////////////////
     // onScheduled시 설정하는 값
     ///////////////////////////////////////////////
-
     // Properties set in onScheduled.
     private volatile int batchSize = 100;
 

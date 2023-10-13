@@ -60,7 +60,7 @@ public class TimestampUtils {
     public static String timestampToString(long micros) {
         long tsMillis = micros / 1000L;
         long tsMicros = micros % 1000000L;
-        String tsStr = ((DateFormat) DATE_FORMAT.get()).format(new Date(tsMillis));
+        String tsStr = DATE_FORMAT.get().format(new Date(tsMillis));
         return String.format("%s.%06dZ", tsStr, tsMicros);
     }
 }

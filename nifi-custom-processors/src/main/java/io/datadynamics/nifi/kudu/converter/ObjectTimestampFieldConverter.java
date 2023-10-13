@@ -1,7 +1,6 @@
 package io.datadynamics.nifi.kudu.converter;
 
 import org.apache.nifi.serialization.record.util.IllegalTypeConversionException;
-import org.apache.nifi.util.StringUtils;
 
 import java.sql.Timestamp;
 import java.time.Duration;
