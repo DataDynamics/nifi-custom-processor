@@ -7,10 +7,11 @@ import org.apache.nifi.components.Validator;
 
 public class JsonValidator implements Validator {
 
+    private ObjectMapper mapper = new ObjectMapper();
+
     @Override
     public ValidationResult validate(String subject, String value, ValidationContext context) {
         try {
-            ObjectMapper mapper = new ObjectMapper();
             mapper.readTree(value.getBytes());
             return (new ValidationResult.Builder()).valid(true).input(value).subject(subject).build();
         } catch (Exception e) {

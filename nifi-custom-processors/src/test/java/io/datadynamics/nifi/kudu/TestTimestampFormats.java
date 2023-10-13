@@ -12,7 +12,7 @@ public class TestTimestampFormats {
     @Test
     public void deserialize() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        TimestampFormats timestampFormats = mapper.readValue("{\n" +
+        String json = "{\n" +
                 "  \"formats\": [\n" +
                 "    {\n" +
                 "      \"column-name\": \"COL_TIMESTAMP\",\n" +
@@ -20,7 +20,9 @@ public class TestTimestampFormats {
                 "      \"type\": \"TIMESTAMP_MILLIS\"\n" +
                 "    }\n" +
                 "  ]\n" +
-                "}", TimestampFormats.class);
+                "}";
+        System.out.println(json);
+        TimestampFormats timestampFormats = mapper.readValue(json, TimestampFormats.class);
 
         List<TimestampFormat> formats = timestampFormats.getFormats();
         Assert.assertEquals(1, formats.size());

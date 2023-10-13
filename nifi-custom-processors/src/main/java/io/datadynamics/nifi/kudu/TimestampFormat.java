@@ -12,6 +12,7 @@ public class TimestampFormat implements Serializable {
     @JsonProperty("timestamp-pattern")
     String timestampFormat;
 
+    @JsonProperty("type")
     TimestampType type;
 
     public String getTimestampFormat() {

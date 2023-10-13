@@ -32,10 +32,12 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
-
 public class DataTypeUtils {
     private static final Logger logger = LoggerFactory.getLogger(DataTypeUtils.class);
-    // Regexes for parsing Floating-Point numbers
+
+    /**
+     * 부동소숫점을 파싱하기 위한 정규 표현식
+     */
     private static final String OptionalSign = "[\\-\\+]?";
     private static final String Infinity = "(Infinity)";
     private static final String NotANumber = "(NaN)";

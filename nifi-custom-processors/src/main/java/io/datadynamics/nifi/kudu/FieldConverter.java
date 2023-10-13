@@ -9,6 +9,7 @@ import java.util.Optional;
  * @param <O> Output Field Type
  */
 public interface FieldConverter<I, O> {
+
     /**
      * Convert Field using Output Field Type with optional format parsing
      *
