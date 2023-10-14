@@ -6,5 +6,6 @@ CREATE TABLE input
     col_timestamp_millis TIMESTAMP,
     col_timestamp_micros TIMESTAMP,
     PRIMARY KEY (col_int)
-) PARTITION BY HASH PARTITIONS 16
+)
+PARTITION BY HASH PARTITIONS 16
 STORED AS KUDU;
