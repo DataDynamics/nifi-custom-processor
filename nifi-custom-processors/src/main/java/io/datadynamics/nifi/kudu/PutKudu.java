@@ -263,6 +263,15 @@ public class PutKudu extends AbstractKuduProcessor {
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
             .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
+    static final PropertyDescriptor TRACK_KUDU_OPERATION_PER_ROW = new Builder()
+            .name("track-kudu-operation-per-row")
+            .displayName("ROW에 대한 Kudu Operation을 추적")
+            .description("FlowFile의 각각의 ROW에 대해서 Kudu Operation의 ")
+            .required(true)
+            .defaultValue("1000")
+            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
+            .expressionLanguageSupported(VARIABLE_REGISTRY)
+            .build();
 
     ///////////////////////////////////////////////
     // onScheduled시 설정하는 값
@@ -326,8 +335,13 @@ public class PutKudu extends AbstractKuduProcessor {
         ffbatch = context.getProperty(FLOWFILE_COUNT_PER_BATCH).asInteger();
         addHour = context.getProperty(ADD_HOUR).asInteger();
         flushMode = SessionConfiguration.FlushMode.valueOf(context.getProperty(FLUSH_MODE).getValue().toUpperCase());
+
         createKerberosUserAndOrKuduClient(context);
+
+        // Kudu가 Insert Ignore를 지원하는지 확인합니다. 구버전의 Kudu는 Insert Ignore를 지원하지 않습니다.
         supportsInsertIgnoreOp = supportsIgnoreOperations();
+        getLogger().info("Kudu Cluster의 Insert Ignore 지원 여부: {}", supportsInsertIgnoreOp ? "지원" : "미지원");
+
         failureStrategy = context.getProperty(FAILURE_STRATEGY).getValue();
     }
 
@@ -379,6 +393,11 @@ public class PutKudu extends AbstractKuduProcessor {
     private void processFlowFiles(final ProcessContext context, final ProcessSession session, final List<FlowFile> flowFiles, final KuduClient kuduClient, TimestampFormatHolder holder, String defaultTimestampPatterns) {
         final Map<FlowFile, Integer> processedRecords = new HashMap<>();
         final Map<FlowFile, Object> flowFileFailures = new HashMap<>();
+
+        /*
+         * 각 Kudu Operation을 FlowFile과 매핑한다.
+         * FlowFile의 ROW가 많은 경우 이 Map은 JVM Heap을 과도하게 소비한다.
+         */
         final Map<Operation, FlowFile> operationFlowFileMap = new HashMap<>();
         final List<RowError> pendingRowErrors = new ArrayList<>();
 
@@ -438,22 +457,24 @@ public class PutKudu extends AbstractKuduProcessor {
                 final boolean lowercaseFields = Boolean.parseBoolean(getEvaluatedProperty(LOWERCASE_FIELD_NAMES, context, flowFile));
                 final boolean handleSchemaDrift = Boolean.parseBoolean(getEvaluatedProperty(HANDLE_SCHEMA_DRIFT, context, flowFile));
 
-                final Function<Record, OperationType> operationTypeFunction;
                 final OperationType staticOperationType = OperationType.valueOf(getEvaluatedProperty(INSERT_OPERATION, context, flowFile).toUpperCase());
-                operationTypeFunction = record -> staticOperationType;
+                final Function<Record, OperationType> operationTypeFunction = record -> staticOperationType;
 
+                // RecordReader로 1개의 ROW를 로딩하여 반환합니다. RecordSet은 Schema와 Row의 묶음입니다.
                 final RecordSet recordSet = recordReader.createRecordSet();
+
+                // Kudu 테이블을 오픈합니다.
                 KuduTable kuduTable = kuduClient.openTable(tableName);
 
-                // Schema Drift를 처리하기 첫번째 레코드로 Kudu 테이블을 평가한다.
+                // Schema Drift를 처리하기 첫번째 레코드로 Kudu 테이블을 평가합니다.
                 Record record = recordSet.next();
 
-                // handleSchemaDrift가 true면, 누락된 컬럼을 확인하여 Kudu 테이블에 컬럼을 추가한다.
+                // handleSchemaDrift가 true면, 누락된 컬럼을 확인하여 Kudu 테이블에 컬럼을 추가합니다.
                 if (handleSchemaDrift) {
                     final boolean driftDetected = handleSchemaDrift(kuduTable, kuduClient, flowFile, record, lowercaseFields);
 
                     if (driftDetected) {
-                        // 새로운 Schema를 위해서 테이블을 오픈한다.
+                        // 새로운 Schema를 위해서 테이블을 오픈합니다.
                         kuduTable = kuduClient.openTable(tableName);
                     }
                 }
@@ -467,29 +488,28 @@ public class PutKudu extends AbstractKuduProcessor {
                     final List<Record> dataRecords = Collections.singletonList(record); // Data Record Path는 무시함
 
                     for (final Record dataRecord : dataRecords) {
-                        // If supportsIgnoreOps is false, in the case of INSERT_IGNORE the Kudu session
-                        // is modified to ignore row errors.
-                        // Because the session is shared across flow files, for batching efficiency, we
-                        // need to flush when changing to and from INSERT_IGNORE operation types.
-                        // This should be removed when the lowest supported version of Kudu supports
-                        // ignore operations.
-                        if (!supportsInsertIgnoreOp && prevOperationType != operationType
-                                && (prevOperationType == OperationType.INSERT_IGNORE || operationType == OperationType.INSERT_IGNORE)) {
+                        // supportIgnoreOps가 false, INSERT_IGNORE로 설정한 경우 Kudu 세션은 ROW 오류를 무시하도록 합니다.
+                        // 구버전의 Kudu는 Insert Ignore를 지원하지 않습니다.
+                        // 따라서 구버전의 Kudu에서 INSERT_IGNORE를 사용하면 IgnoreAllDuplicatRows를 활성화 합니다.
+                        if (!supportsInsertIgnoreOp && prevOperationType != operationType && (prevOperationType == OperationType.INSERT_IGNORE || operationType == OperationType.INSERT_IGNORE)) {
+                            // 버퍼를 비우고 IgnoreAllDuplicatRows를 설정합니다.
                             flushKuduSession(kuduSession, false, pendingRowErrors);
                             kuduSession.setIgnoreAllDuplicateRows(operationType == OperationType.INSERT_IGNORE);
                         }
                         prevOperationType = operationType;
 
                         final List<String> fieldNames = dataRecord.getSchema().getFieldNames();
+
+                        // Kudu Operation을 생성한다.
                         Operation operation = createKuduOperation(operationType, dataRecord, fieldNames, ignoreNull, lowercaseFields, kuduTable, holder, defaultTimestampPatterns);
-                        // We keep track of mappings between Operations and their origins,
-                        // so that we know which FlowFiles should be marked failure after buffered flush.
+
+                        // FlowFile에 속한 ROW를 처리한 Kudu Operation을 매핑한다.
+                        // 이렇게 하면 버퍼를 비운후에 FLowFile이 실패했다는 것을 알아낼 수 있습니다.
                         operationFlowFileMap.put(operation, flowFile);
                         rowCount++;
 
-                        // Flush mutation buffer of KuduSession to avoid "MANUAL_FLUSH is enabled
-                        // but the buffer is too big" error. This can happen when flush mode is
-                        // MANUAL_FLUSH and a FlowFile has more than one records.
+                        // "MANUAL_FLUSH is enabled but the buffer is too big" 오류를 피하기 위해서 Kudu Session의 버퍼를 flush합니다.
+                        // MANUAL_FLUSH이고 처리한 ROW가 설정한 배치 크기에 도달하면 세션을 flush합니다.
                         if (bufferedRecords == batchSize && flushMode == SessionConfiguration.FlushMode.MANUAL_FLUSH) {
                             bufferedRecords = 0;
                             flushKuduSession(kuduSession, false, pendingRowErrors);
@@ -501,10 +521,13 @@ public class PutKudu extends AbstractKuduProcessor {
                             // 첫 에러 발생시 레코드 처리를 중지합니다.
                             // Kudu는 이전 Operation에 대해서 롤백 기능을 지원하지 않습니다.
                             flowFileFailures.put(flowFile, response.getRowError());
+                            getLogger().warn("FlowFile {}을 처리하던 도중 에러가 발생했습니다. 처리를 중지합니다. 에러: ", flowFile, response.getRowError());
                             break recordReaderLoop;
                         }
 
                         bufferedRecords++;
+
+                        // FlowFile 별로 처리한 Record를 기록합니다.
                         processedRecords.merge(flowFile, 1, Integer::sum);
 
                         if (rowLoggingCount > 0 && (rowCount % rowLoggingCount == 0)) {
@@ -572,11 +595,14 @@ public class PutKudu extends AbstractKuduProcessor {
                                    final Map<Operation, FlowFile> operationFlowFileMap,
                                    final List<RowError> pendingRowErrors,
                                    final ProcessSession session) {
-        // 각 FlowFile 마다 RowError를 확인한다.
-        // RowError가 많다면 Heap을 많이 소진할 수 있다.
+
+        getLogger().info("{}", String.format("Operation File Map : %s, FlowFile Failure : %s, Pending Row Errors : %s", operationFlowFileMap.size(), flowFileFailures.size(), pendingRowErrors.size()));
+
+        // 각 FlowFile 마다 RowError를 확인한다. RowError가 많다면 Heap을 많이 소진할 수 있다.
         final Map<FlowFile, List<RowError>> flowFileRowErrors = pendingRowErrors.stream()
                 .filter(e -> operationFlowFileMap.get(e.getOperation()) != null)
                 .collect(
+                        // 에러가 발생한 Row의 Kudu Operation이 있는 FlowFile을 그룹핑한다.
                         Collectors.groupingBy(e -> operationFlowFileMap.get(e.getOperation()))
                 );
 

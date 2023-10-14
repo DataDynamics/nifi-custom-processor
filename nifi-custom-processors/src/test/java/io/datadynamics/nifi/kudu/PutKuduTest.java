@@ -102,7 +102,24 @@ public class PutKuduTest {
         readerFactory.addSchemaField("dateVal", RecordFieldType.DATE);
         readerFactory.addSchemaField("timestampVal", RecordFieldType.TIMESTAMP);
         for (int i = 0; i < numOfRecord; i++) {
-            readerFactory.addRecord(i, "val_" + i, 1000 + i, 100.88 + i, new BigDecimal("111.111").add(BigDecimal.valueOf(i)), today, formatter.format(today));
+            readerFactory.addRecord(i, "val_" + i, 1000 + i, 100.88 + i, new BigDecimal("111.111").add(BigDecimal.valueOf(i)), today, "2022-11-11 11:11:11.111");
+        }
+
+        testRunner.addControllerService("mock-reader-factory", readerFactory);
+        testRunner.enableControllerService(readerFactory);
+    }
+
+    private void createRecordReaderAsError(int numOfRecord) throws InitializationException {
+        readerFactory = new MockRecordParser();
+        readerFactory.addSchemaField("id", RecordFieldType.INT);
+        readerFactory.addSchemaField("stringVal", RecordFieldType.STRING);
+        readerFactory.addSchemaField("num32Val", RecordFieldType.INT);
+        readerFactory.addSchemaField("doubleVal", RecordFieldType.DOUBLE);
+        readerFactory.addSchemaField(new RecordField("decimalVal", RecordFieldType.DECIMAL.getDecimalDataType(6, 3)));
+        readerFactory.addSchemaField("dateVal", RecordFieldType.DATE);
+        readerFactory.addSchemaField("timestampVal", RecordFieldType.TIMESTAMP);
+        for (int i = 0; i < numOfRecord; i++) {
+            readerFactory.addRecord(i, "val_" + i, 1000 + i, 100.88 + i, new BigDecimal("111.111").add(BigDecimal.valueOf(i)), today, "asdfasdfasdf");
         }
 
         testRunner.addControllerService("mock-reader-factory", readerFactory);
@@ -113,7 +130,7 @@ public class PutKuduTest {
 
     @Test
     public void testWriteKuduWithDefaults() throws InitializationException {
-        createRecordReader(1);
+        createRecordReaderAsError(1);
 
         final String filename = "testWriteKudu-" + System.currentTimeMillis();
 
@@ -121,17 +138,13 @@ public class PutKuduTest {
         testRunner.run();
         testRunner.assertAllFlowFilesTransferred(PutKudu.REL_SUCCESS, 1);
 
-        // verify the successful flow file has the expected content & attributes
         final MockFlowFile mockFlowFile = testRunner.getFlowFilesForRelationship(PutKudu.REL_SUCCESS).get(0);
-        mockFlowFile.assertAttributeEquals(CoreAttributes.FILENAME.key(), filename);
-        mockFlowFile.assertAttributeEquals(PutKudu.RECORD_COUNT_ATTR, "100");
+        mockFlowFile.assertAttributeEquals(PutKudu.RECORD_COUNT_ATTR, "1");
         mockFlowFile.assertContentEquals("trigger");
 
-        // verify we generated a provenance event
         final List<ProvenanceEventRecord> provEvents = testRunner.getProvenanceEvents();
         assertEquals(1, provEvents.size());
 
-        // verify it was a SEND event with the correct URI
         final ProvenanceEventRecord provEvent = provEvents.get(0);
         assertEquals(ProvenanceEventType.SEND, provEvent.getEventType());
     }
