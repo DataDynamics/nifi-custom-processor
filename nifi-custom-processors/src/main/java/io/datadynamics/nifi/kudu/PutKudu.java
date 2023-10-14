@@ -590,19 +590,25 @@ public class PutKudu extends AbstractKuduProcessor {
         getLogger().info("{}", String.format("Operation File Map : %s, FlowFile Failure : %s, Pending Row Errors : %s", operationFlowFileMap.size(), flowFileFailures.size(), pendingRowErrors.size()));
 
         // 각 FlowFile 마다 RowError를 확인한다. RowError가 많다면 Heap을 많이 소진할 수 있다.
-        final Map<FlowFile, List<RowError>> flowFileRowErrors = pendingRowErrors.stream()
-                .filter(e -> operationFlowFileMap.get(e.getOperation()) != null)
-                .collect(
-                        // 에러가 발생한 Row의 Kudu Operation이 있는 FlowFile을 그룹핑한다.
-                        Collectors.groupingBy(e -> operationFlowFileMap.get(e.getOperation()))
-                );
+        // isTrackKuduOperationPerRow이 true면 operationFlowFileMap은 비어 있으므로 이것을 처리하는데 시간은 오래 걸리지 않는다.
+        List<RowError> rowErrors = null;
+        if (isTrackKuduOperationPerRow) {
+            Map<FlowFile, List<RowError>> flowFileRowErrors = pendingRowErrors.stream()
+                    .filter(e -> operationFlowFileMap.get(e.getOperation()) != null)
+                    .collect(
+                            // 에러가 발생한 Row의 Kudu Operation이 있는 FlowFile을 그룹핑한다.
+                            Collectors.groupingBy(e -> operationFlowFileMap.get(e.getOperation()))
+                    );
+            rowErrors = flowFileRowErrors.get(flowFile);
+        } else {
+            rowErrors = pendingRowErrors;
+        }
 
         long totalCount = 0L;
         final int count = processedRecords.getOrDefault(flowFile, 0);
         totalCount += count;
-        final List<RowError> rowErrors = isTrackKuduOperationPerRow ? flowFileRowErrors.get(flowFile) : pendingRowErrors;
 
-        if (rowErrors != null) {
+        if (rowErrors != null && !rowErrors.isEmpty()) {
             rowErrors.forEach(rowError -> getLogger().error("Kudu에 저장할 수 없습니다. 에러: {}", rowError.toString()));
             FlowFile f = session.putAttribute(flowFile, RECORD_COUNT_ATTR, Integer.toString(count - rowErrors.size()));
             totalCount -= rowErrors.size(); // 카운터에 에러 ROW를 포함시키지 않는다.
