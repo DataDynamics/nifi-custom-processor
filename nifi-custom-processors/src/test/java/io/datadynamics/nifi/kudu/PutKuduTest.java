@@ -737,7 +737,7 @@ public class PutKuduTest {
         PartialRow row = kuduSchema.newPartialRow();
         values.put(recordIdName, id);
         values.put("col_date_1", date);
-        values.put("col_date_2", "2023-01-01");
+        values.put("col_date_2", "20230101");
         values.put("col_timestamp_1", "2023-01-01 11:11:11");
         values.put("col_timestamp_2", "2023-01-01 11:11:11.111");
         values.put("col_timestamp_3", "2023-01-01 11:11:11.111111");

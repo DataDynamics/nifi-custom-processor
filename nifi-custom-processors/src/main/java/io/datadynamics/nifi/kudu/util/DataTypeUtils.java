@@ -1130,7 +1130,7 @@ public class DataTypeUtils {
             try {
                 localDate = parseLocalDate((String) value, formatter);
             } catch (final RuntimeException e) {
-                final String message = String.format("Failed Conversion of Field [%s] from String [%s] to LocalDate", fieldName, value);
+                final String message = String.format("Failed Conversion of Field [%s] from String [%s] to LocalDate --> Cause: %s", fieldName, value, "Date pattern cannot parse actual date.");
                 throw new IllegalTypeConversionException(message, e);
             }
         } else {
