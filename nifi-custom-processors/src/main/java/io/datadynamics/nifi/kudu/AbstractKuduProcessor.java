@@ -74,7 +74,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .name("kerberos-principal")
             .displayName("Kerberos Principal")
             .description("Kerberos 인증시 ")
-            .description("The principal to use when specifying the principal and password " + "directly in the processor for authenticating via Kerberos.")
+            .description("Kerberos 인증시 필요한 principal 및 password를 지정하기 위한 principal입니다.")
             .required(false)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .addValidator(StandardValidators.createAttributeExpressionLanguageValidator(AttributeExpression.ResultType.STRING))
@@ -83,7 +83,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
     static final PropertyDescriptor KERBEROS_PASSWORD = new PropertyDescriptor.Builder()
             .name("kerberos-password")
             .displayName("Kerberos Password")
-            .description("The password to use when specifying the principal and password directly in the processor for authenticating via Kerberos.")
+            .description("Kerberos 인증시 필요한 principal 및 password를 지정하기 위한 password입니다.")
             .required(false)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .sensitive(true)
@@ -91,7 +91,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
     static final PropertyDescriptor KUDU_OPERATION_TIMEOUT_MS = new Builder()
             .name("kudu-operations-timeout-ms")
             .displayName("Kudu Operation Timeout")
-            .description("Default timeout used for user operations (using sessions and scanners)")
+            .description("Kudu Operation의 기본 타임아웃(세션 및 스캐너에 사용)입니다.")
             .required(false)
             .defaultValue(AsyncKuduClient.DEFAULT_OPERATION_TIMEOUT_MS + "ms")
             .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
@@ -110,7 +110,20 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
      * 기본 Kudu Client의 Worker Thread는 Core의 개수만큼 설정이 되므로 baremetal에서는 이 값을 낮춰서 설정해야 한다.
      */
     private static final int DEFAULT_WORKER_COUNT = 4;
-    static final PropertyDescriptor WORKER_COUNT = new Builder().name("worker-count").displayName("Kudu Client Worker 쓰레드 개수").description("Kudu 클라이언트 읽기 및 쓰기 작업을 처리하는 최대 작업자 스레드 수입니다. 기본적으로 사용 가능한 프로세서의 개수 입니다. 현재 사용가능한 프로세스의 개수: " + Runtime.getRuntime().availableProcessors()).required(true).defaultValue(Integer.toString(DEFAULT_WORKER_COUNT)).addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR).build();
+    static final PropertyDescriptor WORKER_COUNT = new Builder()
+            .name("worker-count")
+            .displayName("Kudu Client Worker 쓰레드 개수")
+            .description(String.format("Kudu 클라이언트 읽기 및 쓰기 작업을 처리하는 최대 작업자 스레드 수입니다.\n" +
+                    "PutKudu의 경우 기본값으로 현재 Processor의 개수 * 2만큼 설정합니다.\n" +
+                    "예를 들어 24Core * 2EA로 구성된 서버라면 vCore로 계산하여 총 96으로 기본값이 설정됩니다.\n" +
+                    "현재 사용가능한 프로세스의 개수: %s\n" +
+                    "NiFi Flow에 Kudu Client를 사용하는 Processor(예; PutKudu)를 많이 사용하고 이 설정값을 높게 설정한 경우\n" +
+                    "NiFi JVM이 과도한 쓰레드를 사용하게 됨으로써 성능 저하가 발생할 수 있습니다.\n" +
+                    "일반적으로 NiFi Cluster의 노드 개수만큼 설정하는 것을 권장합니다.", Runtime.getRuntime().availableProcessors() * 2))
+            .required(true)
+            .defaultValue(Integer.toString(DEFAULT_WORKER_COUNT))
+            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
+            .build();
     private static final FieldConverter<Object, Timestamp> TIMESTAMP_FIELD_CONVERTER = new ObjectTimestampFieldConverter();
     /**
      * Timestamp Pattern overrides default RecordFieldType.TIMESTAMP pattern of yyyy-MM-dd HH:mm:ss with optional microseconds
