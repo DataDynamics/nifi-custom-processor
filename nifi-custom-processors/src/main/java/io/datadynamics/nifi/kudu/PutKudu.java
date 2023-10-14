@@ -600,7 +600,7 @@ public class PutKudu extends AbstractKuduProcessor {
         long totalCount = 0L;
         final int count = processedRecords.getOrDefault(flowFile, 0);
         totalCount += count;
-        final List<RowError> rowErrors = flowFileRowErrors.get(flowFile);
+        final List<RowError> rowErrors = isTrackKuduOperationPerRow ? flowFileRowErrors.get(flowFile) : pendingRowErrors;
 
         if (rowErrors != null) {
             rowErrors.forEach(rowError -> getLogger().error("Kudu에 저장할 수 없습니다. 에러: {}", rowError.toString()));
