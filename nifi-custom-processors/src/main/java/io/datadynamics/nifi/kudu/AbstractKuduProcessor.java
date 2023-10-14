@@ -50,8 +50,8 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
 
     static final PropertyDescriptor KUDU_MASTERS = new Builder()
             .name("kudu-masters")
-            .name("Kudu Masters")
-            .description("연결할 Kudu Master 주소이며 쉼표로 나열할 수 있습니다.")
+            .name("Kudu Master 주소")
+            .description("연결할 Kudu Master 주소이며 쉼표로 나열할 수 있습니다. 예) kudu-master-1:7051,kudu-master-2:7151,kudu-master-3:7251")
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)

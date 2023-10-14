@@ -194,7 +194,9 @@ public class PutKudu extends AbstractKuduProcessor {
             .description("Kudu Operation의 유형을 지정하십시오.\n" +
                     "사용 가능한 값: " +
                     Arrays.stream(OperationType.values()).map(Enum::toString).collect(Collectors.joining(", ")) +
-                    ". 만약에 <Operation RecordPath>을 설정하는 경우 이 값은 무시합니다.")
+                    ".\n" +
+                    "INSERT_IGNORE는 동일 Primary Key를 가진 데이터를 INSERT하는 경우 에러를 발생시키지 않고 무시합니다.\n" +
+                    "Kudu Operation 추적 기능을 true로 설정했을때 JVM Heap 소비를 줄여줄 수 있습니다.")
             .defaultValue(OperationType.INSERT.toString())
             .addValidator(OperationTypeValidator)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
@@ -243,6 +245,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .name("timestamp-pattern-per-column")
             .displayName("Timestamp 컬럼의 Timestamp Format(JSON 형식)")
             .description("각각의 Timestamp 컬럼별로 Timestamp Format을 별도로 지정할 수 있습니다.\n" +
+                    "필요하지 않다면 빈값으로 설정하십시오.\n" +
                     "Timestamp Format은 microseconds까지만 지원합니다. 형식:\n" +
                     "{\n" +
                     "  \"formats\": [\n" +
@@ -291,7 +294,8 @@ public class PutKudu extends AbstractKuduProcessor {
             .displayName("ROW에 대한 Kudu Operation을 추적")
             .description("FlowFile의 각각의 ROW에 대해서 Kudu Operation을 추적합니다.\n" +
                     "이 옵션을 true로 활성화 하면 PutKudu의 기본동작이나\n" +
-                    "JVM Heap을 과도하게 사용하여 큰 데이터를 처리할때 NiFi 장애가 발생할 수 있습니다.")
+                    "JVM Heap을 과도하게 사용하여 큰 데이터를 처리할때 NiFi 장애가 발생할 수 있습니다.\n" +
+                    "ROW 단위로 에러 추적이 필요하지 않은 경우 false로 설정합니다.")
             .required(true)
             .defaultValue("false")
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
