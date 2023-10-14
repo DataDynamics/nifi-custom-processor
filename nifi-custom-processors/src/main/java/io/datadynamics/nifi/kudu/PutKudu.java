@@ -275,7 +275,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .required(true)
             .defaultValue("yyyy-MM-dd HH:mm:ss.SSS")
             .addValidator(timestampValidator)
-            .expressionLanguageSupported(VARIABLE_REGISTRY)
+            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
     static final PropertyDescriptor ROW_LOGGING_COUNT = new Builder()
             .name("row-logging-count")
@@ -290,27 +290,48 @@ public class PutKudu extends AbstractKuduProcessor {
             .name("track-kudu-operation-per-row")
             .displayName("ROW에 대한 Kudu Operation을 추적")
             .description("FlowFile의 각각의 ROW에 대해서 Kudu Operation을 추적합니다.\n" +
-                    "<font color=\"red\">이 옵션을 true로 활성화 하면 PutKudu의 기본동작이나\n" +
-                    "JVM Heap을 과도하게 사용하여 큰 데이터를 처리할때 NiFi 장애가 발생할 수 있습니다.</font>")
+                    "이 옵션을 true로 활성화 하면 PutKudu의 기본동작이나\n" +
+                    "JVM Heap을 과도하게 사용하여 큰 데이터를 처리할때 NiFi 장애가 발생할 수 있습니다.")
             .required(true)
             .defaultValue("false")
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
             .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
 
-    ///////////////////////////////////////////////
+    ///////////////////////////////////////////////////
     // onScheduled시 설정하는 값
-    ///////////////////////////////////////////////
+    // 이 값들은 FlowFile Attribute에서 resolve할 수 없다.
+    ///////////////////////////////////////////////////
 
-    private volatile int batchSize = 100;
+    /**
+     * 1회 배치당 최대 처리하는 Max Row Count
+     */
+    private volatile int maxRowCountPerBatch = 100;
 
+    /**
+     * Timestamp 컬럼에 대해서 추가할 시간
+     */
     private volatile int addHour = 0;
+
+    /**
+     * JVM Heap 부족을 방지하기 위해서 Kudu Operation을 추적할지 여부
+     */
     private volatile boolean isTrackKuduOperationPerRow = false;
 
+    /**
+     * Kudu Flush Mode
+     */
     private volatile SessionConfiguration.FlushMode flushMode;
 
+    /**
+     * FlowFile 처리 실패 방법
+     */
     private volatile String failureStrategy;
 
+    /**
+     * Kudu가 Insert Ignore를 지원하는지 여부.
+     * Kudu의 Insert Ignore는 구버전의 Kudu에서는 지원하지 않는다.
+     */
     private volatile boolean supportsInsertIgnoreOp;
 
     ///////////////////////////////////////////////
@@ -355,7 +376,9 @@ public class PutKudu extends AbstractKuduProcessor {
 
     @OnScheduled
     public void onScheduled(final ProcessContext context) throws LoginException {
-        batchSize = context.getProperty(MAX_ROW_COUNT_PER_BATCH).asInteger();
+        // 아래의 값들은 FlowFile의 Attribute에서 Expression을 통해 Resolve할 수 없다.
+        // onScheduled은 FlowFile이 없기 때문이다.
+        maxRowCountPerBatch = context.getProperty(MAX_ROW_COUNT_PER_BATCH).asInteger();
         isTrackKuduOperationPerRow = context.getProperty(TRACK_KUDU_OPERATION_PER_ROW).asBoolean();
         addHour = context.getProperty(ADD_HOUR).asInteger();
         flushMode = SessionConfiguration.FlushMode.valueOf(context.getProperty(FLUSH_MODE).getValue().toUpperCase());
@@ -375,13 +398,15 @@ public class PutKudu extends AbstractKuduProcessor {
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
-        // 원본 코드에서는 N개의 FlowFile을 처리하도록 구현되어 있으나 Concurrent Tasks로 제어하면 되며, 처리의 복잡도를 줄이기 위해서 1개의 FlowFile만 처리한다.
+        // 원본 코드에서는 N개의 FlowFile을 처리하도록 구현되어 있으나 Concurrent Tasks로 제어하면 되며,
+        // 처리의 복잡도를 줄이기 위해서 1개의 FlowFile만 처리한다.
         final FlowFile flowFile = session.get();
         if (flowFile == null) {
             return;
         }
 
-        // Timestamp 컬럼을 위해서 Timestamp Format(Pattern)을 지정한 JSON을 로딩한다. 이 파라마터는 FlowFile Attribute를 지원한다.
+        // Timestamp 컬럼을 위해서 Timestamp Format(Pattern)을 지정한 JSON을 로딩한다.
+        // 이 파라마터는 FlowFile Attribute를 지원한다.
         String customTimestampPatterns = context.getProperty(CUSTOM_COLUMN_TIMESTAMP_PATTERNS).getValue();
         String defaultTimestampPatterns = context.getProperty(DEFAULT_TIMESTAMP_PATTERN).getValue();
         getLogger().info("지정한 Timestamp 패턴(포맷) JSON : \n{}", customTimestampPatterns);
@@ -534,7 +559,7 @@ public class PutKudu extends AbstractKuduProcessor {
 
                     // "MANUAL_FLUSH is enabled but the buffer is too big" 오류를 피하기 위해서 Kudu Session의 버퍼를 flush합니다.
                     // MANUAL_FLUSH이고 처리한 ROW가 설정한 배치 크기에 도달하면 세션을 flush합니다.
-                    if (bufferedRecords == batchSize && flushMode == SessionConfiguration.FlushMode.MANUAL_FLUSH) {
+                    if (bufferedRecords == maxRowCountPerBatch && flushMode == SessionConfiguration.FlushMode.MANUAL_FLUSH) {
                         bufferedRecords = 0;
                         flushKuduSession(kuduSession, false, pendingRowErrors);
                     }
@@ -686,7 +711,7 @@ public class PutKudu extends AbstractKuduProcessor {
      */
     protected KuduSession createKuduSession(final KuduClient client) {
         final KuduSession kuduSession = client.newSession();
-        kuduSession.setMutationBufferSpace(batchSize);
+        kuduSession.setMutationBufferSpace(maxRowCountPerBatch);
         kuduSession.setFlushMode(flushMode);
         return kuduSession;
     }

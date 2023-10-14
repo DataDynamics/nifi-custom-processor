@@ -11,7 +11,7 @@
         </delete>
     </target>
 
-    <target name="COPY-REPORTING-TASKS">
+    <target name="COPY-REPORTING-TASKS-NAR">
         <echo message="Copying NAR to NiFi Extensions"/>
 
         <copy todir="${NIFI_EXT_DIR}">
@@ -21,7 +21,17 @@
         </copy>
     </target>
 
-    <target name="COPY-CONTROLLER-SERVICES">
+    <target name="COPY-PROCESSORS-NAR">
+        <echo message="Copying NAR to NiFi Extensions"/>
+
+        <copy todir="${NIFI_EXT_DIR}">
+            <fileset dir="nifi-custom-processors-nar/target">
+                <include name="*.nar"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <target name="COPY-CONTROLLER-SERVICES-NAR">
         <echo message="Copying NAR to NiFi Extensions"/>
 
         <copy todir="${NIFI_EXT_DIR}">
