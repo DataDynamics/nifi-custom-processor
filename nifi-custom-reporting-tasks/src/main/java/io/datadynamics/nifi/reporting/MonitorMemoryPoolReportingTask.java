@@ -82,17 +82,6 @@ public class MonitorMemoryPoolReportingTask extends AbstractReportingTask {
             .build();
     private static final List<String> GC_OLD_GEN_POOLS = Collections.unmodifiableList(Arrays.asList("Tenured Gen", "PS Old Gen", "G1 Old Gen", "CMS Old Gen", "ZHeap"));
     private static final AllowableValue[] memPoolAllowableValues;
-    private final static List<PropertyDescriptor> propertyDescriptors;
-    public static ObjectMapper mapper = new ObjectMapper();
-    private static String defaultMemoryPool;
-    public static final PropertyDescriptor MEMORY_POOL_PROPERTY = new PropertyDescriptor.Builder()
-            .name("Memory Pool")
-            .displayName("Memory Pool")
-            .description("모니터링할 JVM 메모리 풀의 이름입니다. 메모리 풀에 허용되는 값은 플랫폼 및 JVM에 따라 다르며 다양한 Java 버전 및 게시된 문서에 따라 다를 수 있습니다. 현재 실행 중인 호스트 플랫폼 및 JVM에서 사용할 수 없는 메모리 풀을 사용하도록 구성된 경우 이 보고 작업은 무효화됩니다.")
-            .required(true)
-            .allowableValues(memPoolAllowableValues)
-            .defaultValue(defaultMemoryPool)
-            .build();
 
     static {
         // Only allow memory pool beans that support usage thresholds, otherwise we wouldn't report anything anyway
@@ -108,6 +97,18 @@ public class MonitorMemoryPoolReportingTask extends AbstractReportingTask {
                 .findFirst()
                 .orElse(null);
     }
+
+    private final static List<PropertyDescriptor> propertyDescriptors;
+    public static ObjectMapper mapper = new ObjectMapper();
+    private static String defaultMemoryPool;
+    public static final PropertyDescriptor MEMORY_POOL_PROPERTY = new PropertyDescriptor.Builder()
+            .name("Memory Pool")
+            .displayName("Memory Pool")
+            .description("모니터링할 JVM 메모리 풀의 이름입니다. 메모리 풀에 허용되는 값은 플랫폼 및 JVM에 따라 다르며 다양한 Java 버전 및 게시된 문서에 따라 다를 수 있습니다. 현재 실행 중인 호스트 플랫폼 및 JVM에서 사용할 수 없는 메모리 풀을 사용하도록 구성된 경우 이 보고 작업은 무효화됩니다.")
+            .required(true)
+            .allowableValues(memPoolAllowableValues)
+            .defaultValue(defaultMemoryPool)
+            .build();
 
     static {
         List<PropertyDescriptor> _propertyDescriptors = new ArrayList<>();

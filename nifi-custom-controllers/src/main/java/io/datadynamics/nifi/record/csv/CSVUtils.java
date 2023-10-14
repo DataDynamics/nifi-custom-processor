@@ -25,6 +25,21 @@ public class CSVUtils {
     public static final AllowableValue INFORMIX_UNLOAD_CSV = new AllowableValue("informix-unload-csv", "Informix Unload Escape Disabled",
             "The format used by Informix when issuing the UNLOAD TO file_name command with escaping disabled");
     public static final AllowableValue MYSQL = new AllowableValue("mysql", "MySQL Format", "CSV data follows the format used by MySQL");
+
+    // CSV Format fields for writers only
+    public static final AllowableValue QUOTE_ALL = new AllowableValue("ALL", "Quote All Values", "All values will be quoted using the configured quote character.");
+    public static final AllowableValue QUOTE_MINIMAL = new AllowableValue("MINIMAL", "Quote Minimal",
+            "Values will be quoted only if they are contain special characters such as newline characters or field separators.");
+    public static final AllowableValue QUOTE_NON_NUMERIC = new AllowableValue("NON_NUMERIC", "Quote Non-Numeric Values", "Values will be quoted unless the value is a number.");
+    public static final AllowableValue QUOTE_NONE = new AllowableValue("NONE", "Do Not Quote Values",
+            "Values will not be quoted. Instead, all special characters will be escaped using the configured escape character.");
+    public static final PropertyDescriptor INCLUDE_HEADER_LINE = new PropertyDescriptor.Builder()
+            .name("Include Header Line")
+            .description("Specifies whether or not the CSV column names should be written out as the first line.")
+            .allowableValues("true", "false")
+            .defaultValue("true")
+            .required(true)
+            .build();
     public static final PropertyDescriptor CSV_FORMAT = new PropertyDescriptor.Builder()
             .name("CSV Format")
             .description("Specifies which \"format\" the CSV data is in, or specifies if custom formatting should be used.")
@@ -163,20 +178,6 @@ public class CSVUtils {
             .expressionLanguageSupported(ExpressionLanguageScope.NONE)
             .addValidator(StandardValidators.CHARACTER_SET_VALIDATOR)
             .defaultValue("UTF-8")
-            .required(true)
-            .build();
-    // CSV Format fields for writers only
-    public static final AllowableValue QUOTE_ALL = new AllowableValue("ALL", "Quote All Values", "All values will be quoted using the configured quote character.");
-    public static final AllowableValue QUOTE_MINIMAL = new AllowableValue("MINIMAL", "Quote Minimal",
-            "Values will be quoted only if they are contain special characters such as newline characters or field separators.");
-    public static final AllowableValue QUOTE_NON_NUMERIC = new AllowableValue("NON_NUMERIC", "Quote Non-Numeric Values", "Values will be quoted unless the value is a number.");
-    public static final AllowableValue QUOTE_NONE = new AllowableValue("NONE", "Do Not Quote Values",
-            "Values will not be quoted. Instead, all special characters will be escaped using the configured escape character.");
-    public static final PropertyDescriptor INCLUDE_HEADER_LINE = new PropertyDescriptor.Builder()
-            .name("Include Header Line")
-            .description("Specifies whether or not the CSV column names should be written out as the first line.")
-            .allowableValues("true", "false")
-            .defaultValue("true")
             .required(true)
             .build();
     private static final Logger LOG = LoggerFactory.getLogger(org.apache.nifi.csv.CSVUtils.class);
