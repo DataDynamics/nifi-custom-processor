@@ -376,7 +376,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                         break;
                     case DATE:
                         final String dateFormat = finalTimestampPattern == null ? RecordFieldType.DATE.getDefaultFormat() : finalTimestampPattern;
-                        row.addDate(columnIndex, getDate(value, recordFieldName, dateFormat));
+                        row.addDate(columnIndex, getDate(value, recordFieldName, addHour, dateFormat));
                         break;
                     default:
                         throw new IllegalStateException(String.format("'%s'은 알 수 없는 컬럼형", colType));
@@ -409,11 +409,14 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
      *
      * @param value           Record Field Value
      * @param recordFieldName Record Field Name
-     * @param format          Date Format Pattern
+     * @param addHour         Hour to Add
+     * @param dateFormat      Date Format Pattern
      * @return Date object or null when value is null
      */
-    private Date getDate(final Object value, final String recordFieldName, final String format) {
-        final LocalDate localDate = DataTypeUtils.toLocalDate(value, () -> DataTypeUtils.getDateTimeFormatter(format, ZoneId.systemDefault()), recordFieldName);
+    private Date getDate(final Object value, final String recordFieldName, int addHour, final String dateFormat) {
+        final LocalDate localDate = DataTypeUtils.toLocalDate(value, () -> {
+            return DataTypeUtils.getDateTimeFormatter(dateFormat, ZoneId.systemDefault());
+        }, recordFieldName);
         return Date.valueOf(localDate);
     }
 

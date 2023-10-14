@@ -1,6 +1,9 @@
 package io.datadynamics.nifi.kudu;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datadynamics.nifi.kudu.json.TimestampFormatHolder;
+import io.datadynamics.nifi.kudu.json.TimestampFormats;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;
@@ -75,9 +78,39 @@ public class PutKuduTest {
     String json = "{\n" +
             "  \"formats\": [\n" +
             "    {\n" +
-            "      \"column-name\": \"timestampVal\",\n" +
+            "      \"column-name\": \"col_date_1\",\n" +
+            "      \"timestamp-pattern\": \"yyyy-MM-dd\",\n" +
+            "      \"type\": \"DATE\"\n" +
+            "    },\n" +
+            "    {\n" +
+            "      \"column-name\": \"col_date_2\",\n" +
+            "      \"timestamp-pattern\": \"yyyyMMdd\",\n" +
+            "      \"type\": \"DATE\"\n" +
+            "    },\n" +
+            "    {\n" +
+            "      \"column-name\": \"col_timestamp_1\",\n" +
             "      \"timestamp-pattern\": \"yyyy-MM-dd HH:mm:ss\",\n" +
             "      \"type\": \"TIMESTAMP_MILLIS\"\n" +
+            "    },\n" +
+            "    {\n" +
+            "      \"column-name\": \"col_timestamp_2\",\n" +
+            "      \"timestamp-pattern\": \"yyyy-MM-dd HH:mm:ss.SSS\",\n" +
+            "      \"type\": \"TIMESTAMP_MILLIS\"\n" +
+            "    },\n" +
+            "    {\n" +
+            "      \"column-name\": \"col_timestamp_3\",\n" +
+            "      \"timestamp-pattern\": \"yyyy-MM-dd HH:mm:ss.SSS\",\n" +
+            "      \"type\": \"TIMESTAMP_MILLIS\"\n" +
+            "    },\n" +
+            "    {\n" +
+            "      \"column-name\": \"col_timestamp_4\",\n" +
+            "      \"timestamp-pattern\": \"yyyy-MM-dd HH:mm:ss.SSS\",\n" +
+            "      \"type\": \"TIMESTAMP_MILLIS\"\n" +
+            "    },\n" +
+            "    {\n" +
+            "      \"column-name\": \"col_timestamp_5\",\n" +
+            "      \"timestamp-pattern\": \"yyyy-MM-dd HH:mm:ss.SSSSSS\",\n" +
+            "      \"type\": \"TIMESTAMP_MICROS\"\n" +
             "    }\n" +
             "  ]\n" +
             "}";
@@ -473,6 +506,16 @@ public class PutKuduTest {
     }
 
     @Test
+    public void testBuildPartialTimestampFields() throws JsonProcessingException { // TODO
+        ObjectMapper mapper = new ObjectMapper();
+        TimestampFormats timestampFormats = mapper.readValue(json, TimestampFormats.class);
+        TimestampFormatHolder holder = new TimestampFormatHolder(timestampFormats);
+
+        PartialRow partialRow = buildPartialRowDateTimestamps((long) 1, "id", "ID", false, 9, holder, "yyyyMMddHHmmssSSS");
+        System.out.println(partialRow);
+    }
+
+    @Test
     public void testBuildPartialRowLowercaseFieldsFalse() {
         PartialRow row = buildPartialRow((long) 1, "foo", (short) 10, "id", "ID", "SFO", null, false);
         assertThrows(IllegalArgumentException.class, () -> row.getLong("id"));
@@ -659,6 +702,46 @@ public class PutKuduTest {
         values.put("score", 10000L);
         values.put("airport_code", airport_code);
         values.put("sql_date", sql_date);
+
+        processor.buildPartialRow(kuduSchema, row, new MapRecord(schema, values), schema.getFieldNames(), true, lowercaseFields, addHour, holder, defaultTimestampPatterns);
+        return row;
+    }
+
+    private PartialRow buildPartialRowDateTimestamps(Long id, String kuduIdName, String recordIdName, Boolean lowercaseFields, int addHour, TimestampFormatHolder holder, String defaultTimestampPatterns) {
+        final Schema kuduSchema = new Schema(Arrays.asList(
+                new ColumnSchema.ColumnSchemaBuilder(kuduIdName, Type.INT64).key(true).build(),
+                new ColumnSchema.ColumnSchemaBuilder("col_date_1", Type.DATE).nullable(true).build(),
+                new ColumnSchema.ColumnSchemaBuilder("col_date_2", Type.DATE).nullable(true).build(),
+                new ColumnSchema.ColumnSchemaBuilder("col_timestamp_1", Type.UNIXTIME_MICROS).nullable(true).build(),
+                new ColumnSchema.ColumnSchemaBuilder("col_timestamp_2", Type.UNIXTIME_MICROS).nullable(true).build(),
+                new ColumnSchema.ColumnSchemaBuilder("col_timestamp_3", Type.UNIXTIME_MICROS).nullable(true).build(),
+                new ColumnSchema.ColumnSchemaBuilder("col_timestamp_4", Type.UNIXTIME_MICROS).nullable(true).build()
+        ));
+
+        final RecordSchema schema = new SimpleRecordSchema(Arrays.asList(
+                new RecordField("col_date_1", RecordFieldType.DATE.getDataType()),
+                new RecordField("col_date_2", RecordFieldType.DATE.getDataType()),
+                new RecordField("col_timestamp_1", RecordFieldType.TIMESTAMP.getDataType()),
+                new RecordField("col_timestamp_2", RecordFieldType.TIMESTAMP.getDataType()),
+                new RecordField("col_timestamp_3", RecordFieldType.TIMESTAMP.getDataType()),
+                new RecordField("col_timestamp_4", RecordFieldType.TIMESTAMP.getDataType())
+        ));
+
+        Date date = null;
+        try {
+            date = formatter.parse("2023-01-01 11:11:11.111");
+        } catch (Exception e) {
+        }
+
+        Map<String, Object> values = new HashMap<>();
+        PartialRow row = kuduSchema.newPartialRow();
+        values.put(recordIdName, id);
+        values.put("col_date_1", date);
+        values.put("col_date_2", "2023-01-01");
+        values.put("col_timestamp_1", "2023-01-01 11:11:11");
+        values.put("col_timestamp_2", "2023-01-01 11:11:11.111");
+        values.put("col_timestamp_3", "2023-01-01 11:11:11.111111");
+        values.put("col_timestamp_4", date.getTime());
 
         processor.buildPartialRow(kuduSchema, row, new MapRecord(schema, values), schema.getFieldNames(), true, lowercaseFields, addHour, holder, defaultTimestampPatterns);
         return row;
