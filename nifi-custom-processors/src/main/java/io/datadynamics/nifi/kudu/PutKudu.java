@@ -49,10 +49,13 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.VARIABLE_REGIST
 @RequiresInstanceClassLoading // Because of calls to UserGroupInformation.setConfiguration
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
 @Tags({"timestamp", "custom", "put", "database", "kudu", "record", "gmt"})
-@CapabilityDescription("지정한 Record Reader를 사용하여 Incoming FlowFile에서 레코드를 읽고 해당 레코드를 지정된 Kudu의 테이블에 기록합니다. " +
+@CapabilityDescription("지정한 Record Reader를 사용하여 Incoming FlowFile에서 레코드를 읽고 해당 레코드를 Kudu의 테이블에 기록합니다. " +
         "Kudu 테이블의 스키마는 Record Reader의 스키마를 활용합니다. " +
-        "입력에서 레코드를 읽거나 Kudu에 레코드를 쓰는 동안 오류가 발생하면 FlowFile이 failure로 라우팅됩니다.")
-@WritesAttribute(attribute = "record.count", description = "Kudu에 기록한 레코드 수")
+        "입력 FlowFile에서 레코드를 읽거나 Kudu에 레코드를 쓰는 동안 오류가 발생하면 FlowFile이 failure로 라우팅됩니다.")
+@WritesAttributes({
+        @WritesAttribute(attribute = "PutKudu Total Rows", description = "Kudu에 기록한 총 레코드 수"),
+        @WritesAttribute(attribute = "PutKudu Error Rows", description = "Kudu에 기록시 에러가 발생한 레코드 수")
+})
 public class PutKudu extends AbstractKuduProcessor {
 
     ///////////////////////////////////////////////
@@ -79,7 +82,7 @@ public class PutKudu extends AbstractKuduProcessor {
 
     protected static final Relationship REL_SUCCESS = new Relationship.Builder()
             .name("success")
-            .description("FlowFile은 Kudu에 데이터가 성공적으로 저장된 후 이 관계로 라우팅됩니다.")
+            .description("FlowFile은 Kudu에 데이터가 성공적으로 저장한 후 이 관계로 라우팅됩니다.")
             .build();
     protected static final Relationship REL_FAILURE = new Relationship.Builder()
             .name("failure")
@@ -132,7 +135,9 @@ public class PutKudu extends AbstractKuduProcessor {
             "Kudu Insert Operation을 실패한 레코드를 포함하는 FlowFile은 'failure'로 라우팅합니다.");
     static final AllowableValue FAILURE_STRATEGY_ROLLBACK = new AllowableValue("rollback",
             "세션 롤백",
-            "레코드를 Insert할 수 없는 경우 NiFi Session의 모든 FlowFile을 Input Queue로 롤백 처리합니다. Kudu로 Insert할 수 없는 경우 문제가 해결될떄 까지 후속 데이터도 Kudu로 Insert하지 않습니다. 순서가 매우 중요한 경우 이것을 사용할 수 있습니다.");
+            "레코드를 Insert할 수 없는 경우 NiFi Session의 모든 FlowFile을 Input Queue로 롤백 처리합니다.\n" +
+                    "Kudu로 Insert할 수 없는 경우 문제가 해결될떄 까지 후속 데이터도 Kudu로 Insert하지 않습니다.\n" +
+                    "FlowFile의 처리 순서가 매우 중요한 경우 이것을 사용할 수 있습니다.");
 
     ///////////////////////////////////////////////
     // Property
@@ -157,7 +162,9 @@ public class PutKudu extends AbstractKuduProcessor {
     protected static final PropertyDescriptor ADD_HOUR = new Builder()
             .name("add-hour-to-timestamp-column")
             .displayName("Timestamp 컬럼에 시간 추가")
-            .description("Timestamp 컬럼에서 GMT, KST 등의 시간 조정을 위해서 추가할 시간을 입력합니다. Kudu는 GMT를 기본 시간으로 사용하므로 GMT로 데이터를 사용할 수 없을때 추가할 시간을 입력합니다. 그러면 Timestamp 컬럼에 대해서 지정한 시간만큼 +하여 저장합니다.")
+            .description("Timestamp 컬럼에서 GMT, KST 등의 시간 조정을 위해서 추가할 시간을 입력합니다.\n" +
+                    "Kudu는 GMT를 기본 시간으로 사용하므로 GMT로 데이터를 사용할 수 없을때 추가할 시간을 입력합니다.\n" +
+                    "그러면 Timestamp 컬럼에 대해서 지정한 시간만큼 +하여 저장합니다.")
             .required(false)
             .defaultValue("0")
             .addValidator(StandardValidators.INTEGER_VALIDATOR)
@@ -174,7 +181,8 @@ public class PutKudu extends AbstractKuduProcessor {
     protected static final PropertyDescriptor HANDLE_SCHEMA_DRIFT = new Builder()
             .name("handle-schema-drift")
             .displayName("컬럼 누락시 컬럼 추가 처리")
-            .description("true로 설정하면 대상 Kudu 테이블에 없는 이름을 가진 필드가 발견되면 Kudu 테이블에 새로운 컬럼을 추가하도록 변경합니다.")
+            .description("true로 설정하면 대상 Kudu 테이블에 없는 이름을 가진 필드(스키마와 테이블의 데이터의 컬럼이 다른 경우)가 발견되면\n" +
+                    "Kudu 테이블에 새로운 컬럼을 추가하도록 변경합니다.")
             .defaultValue("false")
             .required(true)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
@@ -281,7 +289,9 @@ public class PutKudu extends AbstractKuduProcessor {
     static final PropertyDescriptor TRACK_KUDU_OPERATION_PER_ROW = new Builder()
             .name("track-kudu-operation-per-row")
             .displayName("ROW에 대한 Kudu Operation을 추적")
-            .description("FlowFile의 각각의 ROW에 대해서 Kudu Operation을 추적합니다. 이 옵션을 true로 활성화 하면 PutKudu의 기본동작이나 JVM Heap을 과도하게 사용하여 큰 데이터를 처리할때 NiFi 장애가 발생할 수 있습니다.")
+            .description("FlowFile의 각각의 ROW에 대해서 Kudu Operation을 추적합니다.\n" +
+                    "<font color=\"red\">이 옵션을 true로 활성화 하면 PutKudu의 기본동작이나\n" +
+                    "JVM Heap을 과도하게 사용하여 큰 데이터를 처리할때 NiFi 장애가 발생할 수 있습니다.</font>")
             .required(true)
             .defaultValue("false")
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
@@ -410,8 +420,8 @@ public class PutKudu extends AbstractKuduProcessor {
         final Map<FlowFile, Object> flowFileFailures = new HashMap<>();
 
         /*
-         * 각 Kudu Operation을 FlowFile과 매핑한다.
-         * FlowFile의 ROW가 많은 경우 이 Map은 JVM Heap을 과도하게 소비한다.
+         * 각 Kudu Operation을 FlowFile과 매핑합니다.
+         * FlowFile의 ROW가 많은 경우 이 Map은 JVM Heap을 과도하게 소비합니다..
          */
         final Map<Operation, FlowFile> operationFlowFileMap = new HashMap<>();
         final List<RowError> pendingRowErrors = new ArrayList<>();
