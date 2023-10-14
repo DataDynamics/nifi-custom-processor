@@ -125,9 +125,6 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
             .build();
     private static final FieldConverter<Object, Timestamp> TIMESTAMP_FIELD_CONVERTER = new ObjectTimestampFieldConverter();
-    /**
-     * Timestamp Pattern overrides default RecordFieldType.TIMESTAMP pattern of yyyy-MM-dd HH:mm:ss with optional microseconds
-     */
     private static final String MICROSECOND_TIMESTAMP_PATTERN = "yyyy-MM-dd HH:mm:ss[.SSSSSS]";
     private final ReadWriteLock kuduClientReadWriteLock = new ReentrantReadWriteLock();
     private final Lock kuduClientReadLock = kuduClientReadWriteLock.readLock();
@@ -162,10 +159,10 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
 
             if (credentialsService != null) {
                 kerberosUser = createKerberosKeytabUser(credentialsService.getPrincipal(), credentialsService.getKeytab(), context);
-                kerberosUser.login(); // login creates the kudu client as well
+                kerberosUser.login();
             } else if (!StringUtils.isBlank(kerberosPrincipal) && !StringUtils.isBlank(kerberosPassword)) {
                 kerberosUser = createKerberosPasswordUser(kerberosPrincipal, kerberosPassword, context);
-                kerberosUser.login(); // login creates the kudu client as well
+                kerberosUser.login();
             } else {
                 createKuduClient(context);
             }
@@ -200,7 +197,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
         final String saslProtocolName = context.getProperty(KUDU_SASL_PROTOCOL_NAME).evaluateAttributeExpressions().getValue();
         final int workerCount = context.getProperty(WORKER_COUNT).asInteger();
 
-        // Create Executor following approach of Executors.newCachedThreadPool() using worker count as maximum pool size
+        // Max Pool Size로 Executors.newCachedThreadPool()에 따라 Executor를 생성합니다.
         final int corePoolSize = 0;
         final long threadKeepAliveTime = 60;
         final Executor nioExecutor = new ThreadPoolExecutor(corePoolSize, workerCount, threadKeepAliveTime, TimeUnit.SECONDS, new SynchronousQueue<>(), new ClientThreadFactory(getIdentifier()));
@@ -345,7 +342,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                 // JSON 형식의 컬럼별 Timestamp Format을 지정하지 않으면 기본 포맷을 사용하거나 Avro의 Timestamp Format을 사용한다.
                 String defaultPattern = defaultTimestampPatterns == null ? fieldDataType.map(DataType::getFormat).orElse(null) : defaultTimestampPatterns;
                 String finalTimestampPattern = (holder == null ? defaultPattern : holder.getPattern(recordFieldName));
-                getLogger().debug("{}", String.format("Record Field Name: {} ==> {}, Date Format: {}", recordFieldName, colType, finalTimestampPattern));
+                if (getLogger().isDebugEnabled()) getLogger().debug("{}", String.format("Record Field Name: {} ==> {}, Date Format: {}", recordFieldName, colType, finalTimestampPattern));
 
                 switch (colType) {
                     case BOOL:
@@ -399,10 +396,10 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
     }
 
     /**
-     * Get Timestamp Pattern and override Timestamp Record Field pattern with optional microsecond pattern
+     * Timestamp 패턴을 반환하거나, 선택적으로 레코드 필드의 유형에Ekfktj 마이크로초 타임스탬프 패턴을 반환합니다.
      *
-     * @param optionalDataType Optional Data Type
-     * @return Optional Timestamp Pattern
+     * @param optionalDataType Data Type
+     * @return Date Format Pattern
      */
     private Optional<String> getTimestampPattern(final Optional<DataType> optionalDataType) {
         String pattern = null;
@@ -418,13 +415,13 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
     }
 
     /**
-     * Get java.sql.Date from Record Field Value with optional parsing when input value is a String
+     * 입력 값이 문자열인 경우 선택적 구문 분석을 사용하여 레코드 필드 값에서 java.sql.Date 가져옵니다.
      *
      * @param value           Record Field Value
      * @param recordFieldName Record Field Name
      * @param addHour         Hour to Add
      * @param dateFormat      Date Format Pattern
-     * @return Date object or null when value is null
+     * @return 날짜 객체 또는 값이 null인 경우 null
      */
     private Date getDate(final Object value, final String recordFieldName, int addHour, final String dateFormat) {
         final LocalDate localDate = DataTypeUtils.toLocalDate(value, () -> {
@@ -476,8 +473,8 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
     }
 
     /**
-     * Based on NiFi field declaration, generates an alter statement to extend table with new column. Note: simply calling
-     * {@link AlterTableOptions#addNullableColumn(String, Type)} is not sufficient as it does not cover BigDecimal scale and precision handling.
+     * NiFi 필드 선언을 기반으로 새 열로 테이블을 확장하는 alter 문을 생성합니다.
+     * 참고: BigDecimal 소수 자릿수 및 정밀도 처리를 다루지 않으므로 단순히 {@link AlterTableOptions#addNullableColumn(String, Type)}을 호출하는 것만으로는 충분하지 않습니다.
      *
      * @param columnName 새로운 컬럼명
      * @param nifiType   필드 타입

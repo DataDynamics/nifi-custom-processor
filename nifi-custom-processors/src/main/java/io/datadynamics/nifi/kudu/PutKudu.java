@@ -21,9 +21,6 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
-import org.apache.nifi.record.path.FieldValue;
-import org.apache.nifi.record.path.RecordPath;
-import org.apache.nifi.record.path.RecordPathResult;
 import org.apache.nifi.security.krb.KerberosAction;
 import org.apache.nifi.security.krb.KerberosUser;
 import org.apache.nifi.serialization.RecordReader;
@@ -764,34 +761,6 @@ public class PutKudu extends AbstractKuduProcessor {
         }
         buildPartialRow(kuduTable.getSchema(), operation.getRow(), record, fieldNames, ignoreNull, lowercaseFields, addHour, holder, defaultTimestampPatterns);
         return operation;
-    }
-
-    private static class RecordPathOperationType implements Function<Record, OperationType> {
-        private final RecordPath recordPath;
-
-        public RecordPathOperationType(final RecordPath recordPath) {
-            this.recordPath = recordPath;
-        }
-
-        @Override
-        public OperationType apply(final Record record) {
-            final RecordPathResult recordPathResult = recordPath.evaluate(record);
-            final List<FieldValue> resultList = recordPathResult.getSelectedFields().distinct().collect(Collectors.toList());
-            if (resultList.isEmpty()) {
-                throw new ProcessException("Evaluated RecordPath " + recordPath.getPath() + " against Record but got no results");
-            }
-
-            if (resultList.size() > 1) {
-                throw new ProcessException("Evaluated RecordPath " + recordPath.getPath() + " against Record and received multiple distinct results (" + resultList + ")");
-            }
-
-            final String resultValue = String.valueOf(resultList.get(0).getValue());
-            try {
-                return OperationType.valueOf(resultValue.toUpperCase());
-            } catch (final IllegalArgumentException iae) {
-                throw new ProcessException("Evaluated RecordPath " + recordPath.getPath() + " against Record to determine Kudu Operation Type but found invalid value: " + resultValue);
-            }
-        }
     }
 
     public static String formatHumanReadableTime(long diffLongTime) {
