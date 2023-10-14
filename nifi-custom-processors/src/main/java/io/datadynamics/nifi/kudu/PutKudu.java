@@ -3,6 +3,7 @@ package io.datadynamics.nifi.kudu;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datadynamics.nifi.kudu.json.TimestampFormatHolder;
 import io.datadynamics.nifi.kudu.json.TimestampFormats;
+import io.datadynamics.nifi.kudu.json.TimestampType;
 import io.datadynamics.nifi.kudu.validator.JsonValidator;
 import io.datadynamics.nifi.kudu.validator.TimestampValidator;
 import org.apache.kudu.Schema;
@@ -233,15 +234,36 @@ public class PutKudu extends AbstractKuduProcessor {
     static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
             .name("timestamp-pattern-per-column")
             .displayName("Timestamp 컬럼의 Timestamp Format(JSON 형식)")
-            .description("각각의 Timestamp 컬럼별로 Timestamp Format을 별도로 지정할 수 있습니다. Timestamp Format은 microseconds까지만 지원합니다.")
+            .description("각각의 Timestamp 컬럼별로 Timestamp Format을 별도로 지정할 수 있습니다.\n" +
+                    "Timestamp Format은 microseconds까지만 지원합니다. 형식:\n" +
+                    "{\n" +
+                    "  \"formats\": [\n" +
+                    "    {\n" +
+                    "      \"column-name\": \"COL_TIMESTAMP\",\n" +
+                    "      \"timestamp-pattern\": \"yyyy-MM-dd HH:mm:ss\",\n" +
+                    "      \"type\": \"TIMESTAMP_MILLIS\"\n" +
+                    "    }\n" +
+                    "  ]\n" +
+                    "}\n" +
+                    "지원하는 Type: " + Arrays.stream(TimestampType.values()).map(Enum::toString).collect(Collectors.joining(", ")))
             .required(false)
+            .defaultValue("{\n" +
+                    "  \"formats\": [\n" +
+                    "    {\n" +
+                    "      \"column-name\": \"COL_TIMESTAMP\",\n" +
+                    "      \"timestamp-pattern\": \"yyyy-MM-dd HH:mm:ss\",\n" +
+                    "      \"type\": \"TIMESTAMP_MILLIS\"\n" +
+                    "    }\n" +
+                    "  ]\n" +
+                    "}\n")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
     static final PropertyDescriptor DEFAULT_TIMESTAMP_PATTERN = new Builder()
             .name("default-timestamp-pattern")
             .displayName("Timestamp 컬럼의 기본 날짜 패턴")
-            .description("'Timestamp 컬럼의 Timestamp Format(JSON 형식)'으로 컬럼별 파싱 패턴을 지정하지 않으면 Timestamp 컬럼에 이 파싱 패턴을 일괄 적용합니다.")
+            .description("'Timestamp 컬럼의 Timestamp Format(JSON 형식)'으로 컬럼별 파싱 패턴을 지정하지 않으면\n" +
+                    "Timestamp 컬럼에 이 파싱 패턴을 일괄 적용합니다.")
             .required(true)
             .defaultValue("yyyy-MM-dd HH:mm:ss.SSS")
             .addValidator(timestampValidator)
@@ -259,7 +281,7 @@ public class PutKudu extends AbstractKuduProcessor {
     static final PropertyDescriptor TRACK_KUDU_OPERATION_PER_ROW = new Builder()
             .name("track-kudu-operation-per-row")
             .displayName("ROW에 대한 Kudu Operation을 추적")
-            .description("FlowFile의 각각의 ROW에 대해서 Kudu Operation의 ")
+            .description("FlowFile의 각각의 ROW에 대해서 Kudu Operation을 추적합니다. 이 옵션을 true로 활성화 하면 PutKudu의 기본동작이나 JVM Heap을 과도하게 사용하여 큰 데이터를 처리할때 NiFi 장애가 발생할 수 있습니다.")
             .required(true)
             .defaultValue("false")
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
