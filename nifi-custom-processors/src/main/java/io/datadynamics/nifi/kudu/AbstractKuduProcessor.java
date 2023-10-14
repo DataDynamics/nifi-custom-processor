@@ -79,7 +79,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .addValidator(StandardValidators.createAttributeExpressionLanguageValidator(AttributeExpression.ResultType.STRING))
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
-            .build(); // TODO
+            .build();
     static final PropertyDescriptor KERBEROS_PASSWORD = new PropertyDescriptor.Builder()
             .name("kerberos-password")
             .displayName("Kerberos Password")

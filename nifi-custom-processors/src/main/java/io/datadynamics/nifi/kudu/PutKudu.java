@@ -23,14 +23,12 @@ import org.apache.nifi.processor.util.StandardValidators;
 import org.apache.nifi.record.path.FieldValue;
 import org.apache.nifi.record.path.RecordPath;
 import org.apache.nifi.record.path.RecordPathResult;
-import org.apache.nifi.record.path.validation.RecordPathValidator;
 import org.apache.nifi.security.krb.KerberosAction;
 import org.apache.nifi.security.krb.KerberosUser;
 import org.apache.nifi.serialization.RecordReader;
 import org.apache.nifi.serialization.RecordReaderFactory;
 import org.apache.nifi.serialization.record.Record;
 import org.apache.nifi.serialization.record.RecordField;
-import org.apache.nifi.serialization.record.RecordFieldType;
 import org.apache.nifi.serialization.record.RecordSet;
 import org.apache.nifi.util.StringUtils;
 
@@ -129,15 +127,10 @@ public class PutKudu extends AbstractKuduProcessor {
 
     static final AllowableValue FAILURE_STRATEGY_ROUTE = new AllowableValue("route-to-failure",
             "실패로 처리",
-            "The FlowFile containing the Records that failed to insert will be routed to the " +
-                    "'failure' relationship");
+            "Kudu Insert Operation을 실패한 레코드를 포함하는 FlowFile은 'failure'로 라우팅합니다.");
     static final AllowableValue FAILURE_STRATEGY_ROLLBACK = new AllowableValue("rollback",
             "세션 롤백",
-            "If any Record cannot be inserted, all FlowFiles in the session will be rolled back " +
-                    "to their input queue. This means that if data cannot be pushed, " +
-                    "it will block any subsequent data from be pushed to Kudu as well " +
-                    "until the issue is resolved. However, this may be advantageous " +
-                    "if a strict ordering is required.");
+            "레코드를 Insert할 수 없는 경우 NiFi Session의 모든 FlowFile을 Input Queue로 롤백 처리합니다. Kudu로 Insert할 수 없는 경우 문제가 해결될떄 까지 후속 데이터도 Kudu로 Insert하지 않습니다. 순서가 매우 중요한 경우 이것을 사용할 수 있습니다.");
 
     ///////////////////////////////////////////////
     // Property
@@ -157,7 +150,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .description("Kudu 테이블에 데이터를 저장하기 위해서 테이블명을 지정하십시오.")
             .required(true)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
     protected static final PropertyDescriptor ADD_HOUR = new Builder()
             .name("add-hour-to-timestamp-column")
@@ -174,8 +167,8 @@ public class PutKudu extends AbstractKuduProcessor {
             .description("Kudu 테이블 컬럼의 인덱스를 찾을 때 컬럼명을 소문자로 변환하여 처리합니다.")
             .defaultValue("false")
             .required(true)
-            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
     protected static final PropertyDescriptor HANDLE_SCHEMA_DRIFT = new Builder()
             .name("handle-schema-drift")
@@ -183,57 +176,60 @@ public class PutKudu extends AbstractKuduProcessor {
             .description("true로 설정하면 대상 Kudu 테이블에 없는 이름을 가진 필드가 발견되면 Kudu 테이블에 새로운 컬럼을 추가하도록 변경합니다.")
             .defaultValue("false")
             .required(true)
-            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
     protected static final PropertyDescriptor INSERT_OPERATION = new Builder()
-            .name("Insert Operation")
+            .name("insert-operation")
             .displayName("Kudu Operation 유형")
             .description("Kudu Operation의 유형을 지정하십시오.\n" +
                     "사용 가능한 값: " +
                     Arrays.stream(OperationType.values()).map(Enum::toString).collect(Collectors.joining(", ")) +
                     ". 만약에 <Operation RecordPath>을 설정하는 경우 이 값은 무시합니다.")
             .defaultValue(OperationType.INSERT.toString())
-            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .addValidator(OperationTypeValidator)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
     protected static final PropertyDescriptor FLUSH_MODE = new Builder()
-            .name("Flush 모드")
+            .name("flush-mode")
+            .displayName("Flush 모드")
             .description("Kudu 세션에 Flush 모드를 설정합니다.\n" +
-                    "AUTO_FLUSH_SYNC: the call returns when the operation is persisted, else it throws an exception.\n" +
-                    "AUTO_FLUSH_BACKGROUND: the call returns when the operation has been added to the buffer. This call should normally perform only fast in-memory operations but it may have to wait when the buffer is full and there's another buffer being flushed.\n" +
-                    "MANUAL_FLUSH: the call returns when the operation has been added to the buffer, else it throws a KuduException if the buffer is full.")
-            .allowableValues(SessionConfiguration.FlushMode.values())
-            .defaultValue(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND.toString())
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+                    "AUTO_FLUSH_SYNC: Kudu Operation을 완료하거나 또는 예외를 발생시킵니다.\n" +
+                    "AUTO_FLUSH_BACKGROUND: Kudu Operation을 버퍼에 추가합니다. 메모리에 추가하므로 빠르게 처리되나, 버퍼가 꽉 찰때까지 대기해야할 수 있습니다.\n" +
+                    "MANUAL_FLUSH: Kudu Operation을 버퍼에 추가하거나 또는 버퍼가 꽉 찼을때 KuduException을 발생시킵니다.")
             .required(true)
+            .defaultValue(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND.toString())
+            .allowableValues(SessionConfiguration.FlushMode.values())
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
-    protected static final PropertyDescriptor FLOWFILE_BATCH_SIZE = new Builder()
-            .name("배치당 FlowFile의 개수")
+    protected static final PropertyDescriptor FLOWFILE_COUNT_PER_BATCH = new Builder()
+            .name("flowfile-count-per-batch")
+            .displayName("배치당 FlowFile의 개수")
             .description("단일 실행에서 처리할 최대 FlowFile 수는 1~100000입니다. 메모리 크기 및 행당 데이터 크기에 따라 클라이언트 연결 설정당 처리할 FlowFile 수의 적절한 배치 크기를 설정하십시오. " +
                     "시스템이 수용할 수 있는 수준을 확인하면서 이 값을 점차적으로 늘리십시오. 대부분의 경우 이 값을 1로 설정하도록 하고 Processor의 Concurrent Task를 늘리는 전략이 더 유용합니다.")
-            .defaultValue("1")
             .required(true)
+            .defaultValue("1")
             .addValidator(StandardValidators.createLongValidator(1, 100000, true))
             .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
-    protected static final PropertyDescriptor BATCH_SIZE = new Builder()
-            .name("배치당 처리할 ROW 수")
+    protected static final PropertyDescriptor MAX_ROW_COUNT_PER_BATCH = new Builder()
+            .name("max-row-count-per-batch")
             .displayName("1개의 배치당 최대 ROW 수")
             .description("단일 Kudu 클라이언트가 1회 배치 처리에서 처리할 최대 레코드 수는 1~100000입니다. 메모리 크기 및 행당 데이터 크기에 따라 적절한 일괄 처리 크기를 설정합니다. " +
                     "최고의 성능을 위한 최상의 숫자를 찾으려면 이 숫자를 점차적으로 늘리면서 테스트하여 결정하도록 합니다.")
-            .defaultValue("100")
             .required(true)
+            .defaultValue("100")
             .addValidator(StandardValidators.createLongValidator(1, 100000, true))
             .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
     protected static final PropertyDescriptor IGNORE_NULL = new Builder()
-            .name("NULL 무시")
+            .name("ignore-null")
+            .displayName("NULL 무시")
             .description("Kudu Put 작업시 NULL 무시. true로 설정하면 non-null만 업데이트합니다.")
             .defaultValue("false")
             .required(true)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
-            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
     static final PropertyDescriptor FAILURE_STRATEGY = new Builder()
             .name("failure-strategy")
@@ -244,21 +240,21 @@ public class PutKudu extends AbstractKuduProcessor {
             .defaultValue(FAILURE_STRATEGY_ROUTE.getValue())
             .build();
     static final PropertyDescriptor CUSTOM_COLUMN_TIMESTAMP_PATTERNS = new Builder()
-            .name("kudu-column-timestamp-patterns")
+            .name("timestamp-pattern-per-column")
             .displayName("Timestamp 컬럼의 Timestamp Format(JSON 형식)")
-            .description("Timestamp 컬럼에 Timestamp Format을 별도로 지정할 수 있습니다. Timestamp Format은 microseconds까지만 지원합니다.")
+            .description("각각의 Timestamp 컬럼별로 Timestamp Format을 별도로 지정할 수 있습니다. Timestamp Format은 microseconds까지만 지원합니다.")
             .required(false)
             .addValidator(JsonValidator)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
     static final PropertyDescriptor DEFAULT_TIMESTAMP_PATTERN = new Builder()
             .name("default-timestamp-pattern")
-            .displayName("기본 날짜 패턴")
-            .description("'Timestamp 컬럼의 Timestamp Format(JSON 형식)'으로 컬럼별 파싱 패턴을 지정하지 않으면 Timestamp 컬럼에 이 파상 패턴을 적용합니다.")
+            .displayName("Timestamp 컬럼의 기본 날짜 패턴")
+            .description("'Timestamp 컬럼의 Timestamp Format(JSON 형식)'으로 컬럼별 파싱 패턴을 지정하지 않으면 Timestamp 컬럼에 이 파싱 패턴을 일괄 적용합니다.")
             .required(true)
             .defaultValue("yyyy-MM-dd HH:mm:ss.SSS")
             .addValidator(timestampValidator)
-            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
     static final PropertyDescriptor ROW_LOGGING_COUNT = new Builder()
             .name("row-logging-count")
@@ -267,7 +263,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .required(true)
             .defaultValue("1000")
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
-            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
             .build();
 
     ///////////////////////////////////////////////
@@ -301,8 +297,8 @@ public class PutKudu extends AbstractKuduProcessor {
         properties.add(RECORD_READER);
         properties.add(INSERT_OPERATION);
         properties.add(FLUSH_MODE);
-        properties.add(FLOWFILE_BATCH_SIZE);
-        properties.add(BATCH_SIZE);
+        properties.add(FLOWFILE_COUNT_PER_BATCH);
+        properties.add(MAX_ROW_COUNT_PER_BATCH);
         properties.add(IGNORE_NULL);
         properties.add(WORKER_COUNT);
         properties.add(ADD_HOUR);
@@ -328,8 +324,8 @@ public class PutKudu extends AbstractKuduProcessor {
 
     @OnScheduled
     public void onScheduled(final ProcessContext context) throws LoginException {
-        batchSize = context.getProperty(BATCH_SIZE).evaluateAttributeExpressions().asInteger();
-        ffbatch = context.getProperty(FLOWFILE_BATCH_SIZE).evaluateAttributeExpressions().asInteger();
+        batchSize = context.getProperty(MAX_ROW_COUNT_PER_BATCH).evaluateAttributeExpressions().asInteger();
+        ffbatch = context.getProperty(FLOWFILE_COUNT_PER_BATCH).evaluateAttributeExpressions().asInteger();
         addHour = context.getProperty(ADD_HOUR).evaluateAttributeExpressions().asInteger();
         flushMode = SessionConfiguration.FlushMode.valueOf(context.getProperty(FLUSH_MODE).getValue().toUpperCase());
         createKerberosUserAndOrKuduClient(context);
