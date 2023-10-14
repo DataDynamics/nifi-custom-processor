@@ -332,7 +332,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                 // JSON 형식의 컬럼별 Timestamp Format을 지정하지 않으면 기본 포맷을 사용하거나 Avro의 Timestamp Format을 사용한다.
                 String defaultPattern = defaultTimestampPatterns == null ? fieldDataType.map(DataType::getFormat).orElse(null) : defaultTimestampPatterns;
                 String finalTimestampPattern = (holder == null ? defaultPattern : holder.getPattern(recordFieldName));
-                getLogger().debug("{}", String.format("Record Field Name : {} ==> Type : {}, Date Format : {}", recordFieldName, colType, finalTimestampPattern));
+                getLogger().debug("{}", String.format("Record Field Name: {} ==> {}, Date Format: {}", recordFieldName, colType, finalTimestampPattern));
 
                 switch (colType) {
                     case BOOL:
@@ -352,15 +352,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                         break;
                     case UNIXTIME_MICROS:
                         Optional<String> optionalPattern = Optional.of(finalTimestampPattern);
-/*
-                        final Optional<DataType> optionalDataType = record.getSchema().getDataType(recordFieldName);
-                        if (holder.getPattern(recordFieldName) == null) {
-                            optionalPattern = getTimestampPattern(optionalDataType);
-                        } else {
-                        optionalPattern = Optional.of(finalTimestampPattern);
-                        }
-*/
-                        getLogger().debug("{}", String.format("[Timestamp] Record Field Name : {} ==> Type : {}, Date Format : {}", recordFieldName, colType, finalTimestampPattern));
+                        getLogger().info("{}", String.format("[Timestamp] Record Field Name: %s ==> %s, Date Format: %s, Add Hour: %s", recordFieldName, colType, finalTimestampPattern, addHour));
                         final Timestamp timestamp = TIMESTAMP_FIELD_CONVERTER.convertField(value, optionalPattern, recordFieldName, addHour, finalTimestampPattern);
                         row.addTimestamp(columnIndex, timestamp);
                         break;

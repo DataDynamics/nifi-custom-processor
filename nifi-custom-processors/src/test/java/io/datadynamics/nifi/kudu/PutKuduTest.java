@@ -1,5 +1,6 @@
 package io.datadynamics.nifi.kudu;
 
+import io.datadynamics.nifi.kudu.json.TimestampFormatHolder;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;
@@ -24,6 +25,7 @@ import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import org.apache.nifi.util.Tuple;
+import org.junit.Assert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -61,14 +63,14 @@ public class PutKuduTest {
     public static final String DEFAULT_MASTERS = "testLocalHost:7051";
     public static final String TABLE_SCHEMA = "id,stringVal,num32Val,doubleVal,decimalVal,dateVal";
 
-    private static final String DATE_FIELD = "created";
-    private static final String ISO_8601_YEAR_MONTH_DAY = "2000-01-01";
-    private static final String ISO_8601_YEAR_MONTH_DAY_PATTERN = "yyyy-MM-dd";
-    private static final String ISO_8601_TIMESTAMP_PATTERN = "yyyy-MM-dd HH:mm:ss.SSS";
+    public static final String DATE_FIELD = "created";
+    public static final String ISO_8601_YEAR_MONTH_DAY = "2000-01-01";
+    public static final String ISO_8601_YEAR_MONTH_DAY_PATTERN = "yyyy-MM-dd";
+    public static final String ISO_8601_TIMESTAMP_PATTERN = "yyyy-MM-dd HH:mm:ss.SSS";
 
-    private static final String TIMESTAMP_FIELD = "updated";
-    private static final String TIMESTAMP_STANDARD = "2000-01-01 12:00:00";
-    private static final String TIMESTAMP_MICROSECONDS = "2000-01-01 12:00:00.123456";
+    public static final String TIMESTAMP_FIELD = "updated";
+    public static final String TIMESTAMP_STANDARD = "2000-01-01 12:00:00";
+    public static final String TIMESTAMP_MICROSECONDS = "2000-01-01 12:00:00.123456";
 
     String json = "{\n" +
             "  \"formats\": [\n" +
@@ -466,7 +468,8 @@ public class PutKuduTest {
     @Test
     public void testBuildPartialRowLowercaseFields() {
         PartialRow row = buildPartialRow((long) 1, "foo", (short) 10, "id", "ID", "SFO", null, true);
-        row.getLong("id");
+        Assert.assertEquals(1, row.getLong("id"));
+        Assert.assertEquals("2023-01-01 20:11:11.111", row.getTimestamp("updated_at").toString());
     }
 
     @Test
@@ -533,14 +536,39 @@ public class PutKuduTest {
 
     @Test
     public void testBuildPartialRowWithTimestampMicrosecondsString() {
-        assertPartialRowTimestampFieldEquals(TIMESTAMP_MICROSECONDS);
+        assertPartialRowTimestampMicroFieldEquals(TIMESTAMP_MICROSECONDS);
     }
 
     private void assertPartialRowTimestampFieldEquals(final Object timestampFieldValue) {
-        final PartialRow row = buildPartialRowTimestampField(timestampFieldValue);
+        final PartialRow row = _buildPartialRowTimestampField(timestampFieldValue, "yyyy-MM-dd HH:mm:ss");
         final Timestamp timestamp = row.getTimestamp(TIMESTAMP_FIELD);
         final Timestamp expected = Timestamp.valueOf(timestampFieldValue.toString());
         assertEquals(expected, timestamp, "Partial Row Timestamp Field not matched");
+    }
+
+    private void assertPartialRowTimestampMicroFieldEquals(final Object timestampFieldValue) {
+        final PartialRow row = _buildPartialRowTimestampField(timestampFieldValue, "yyyy-MM-dd HH:mm:ss.SSSSSS");
+        final Timestamp timestamp = row.getTimestamp(TIMESTAMP_FIELD);
+        final Timestamp expected = Timestamp.valueOf(timestampFieldValue.toString());
+        assertEquals(expected, timestamp, "Partial Row Timestamp Field not matched");
+    }
+
+    private PartialRow _buildPartialRowTimestampField(final Object timestampFieldValue, String timestampPattern) {
+        final Schema kuduSchema = new Schema(Collections.singletonList(
+                new ColumnSchema.ColumnSchemaBuilder(TIMESTAMP_FIELD, Type.UNIXTIME_MICROS).nullable(true).build()
+        ));
+
+        final RecordSchema schema = new SimpleRecordSchema(Collections.singletonList(
+                new RecordField(TIMESTAMP_FIELD, RecordFieldType.TIMESTAMP.getDataType())
+        ));
+
+        final Map<String, Object> values = new HashMap<>();
+        values.put(TIMESTAMP_FIELD, timestampFieldValue);
+        final MapRecord record = new MapRecord(schema, values);
+
+        final PartialRow row = kuduSchema.newPartialRow();
+        processor.buildPartialRow(kuduSchema, row, record, schema.getFieldNames(), true, true, 0, null, timestampPattern); // FIXED
+        return row;
     }
 
     private PartialRow buildPartialRowTimestampField(final Object timestampFieldValue) {
@@ -557,7 +585,7 @@ public class PutKuduTest {
         final MapRecord record = new MapRecord(schema, values);
 
         final PartialRow row = kuduSchema.newPartialRow();
-        // processor.buildPartialRow(kuduSchema, row, record, schema.getFieldNames(), true, true); // FIXED
+        processor.buildPartialRow(kuduSchema, row, record, schema.getFieldNames(), true, true, 0, null, "yyyy-MM-dd HH:mm:ss.SSSSSS"); // FIXED
         return row;
     }
 
@@ -581,11 +609,15 @@ public class PutKuduTest {
         final MapRecord record = new MapRecord(schema, values);
 
         final PartialRow row = kuduSchema.newPartialRow();
-        // processor.buildPartialRow(kuduSchema, row, record, schema.getFieldNames(), true, true); // FIXED
+        processor.buildPartialRow(kuduSchema, row, record, schema.getFieldNames(), true, true, 0, null, "yyyy-MM-dd");
         return row;
     }
 
     private PartialRow buildPartialRow(Long id, String name, Short age, String kuduIdName, String recordIdName, String airport_code, java.sql.Date sql_date, Boolean lowercaseFields) {
+        return buildPartialRow(id, name, age, kuduIdName, recordIdName, airport_code, sql_date, lowercaseFields, 9, null, "yyyy-MM-dd HH:mm:ss.SSS");
+    }
+
+    private PartialRow buildPartialRow(Long id, String name, Short age, String kuduIdName, String recordIdName, String airport_code, java.sql.Date sql_date, Boolean lowercaseFields, int addHour, TimestampFormatHolder holder, String defaultTimestampPatterns) {
         final Schema kuduSchema = new Schema(Arrays.asList(
                 new ColumnSchema.ColumnSchemaBuilder(kuduIdName, Type.INT64).key(true).build(),
                 new ColumnSchema.ColumnSchemaBuilder("name", Type.STRING).nullable(true).build(),
@@ -611,17 +643,24 @@ public class PutKuduTest {
                 new RecordField("sql_date", RecordFieldType.DATE.getDataType())
         ));
 
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+        Date date = null;
+        try {
+            date = formatter.parse("2023-01-01 11:11:11.111");
+        } catch (Exception e) {
+        }
+
         Map<String, Object> values = new HashMap<>();
         PartialRow row = kuduSchema.newPartialRow();
         values.put(recordIdName, id);
         values.put("name", name);
         values.put("age", age);
-        values.put("updated_at", new Timestamp(System.currentTimeMillis()));
+        values.put("updated_at", new Timestamp(date == null ? System.currentTimeMillis() : date.getTime()));
         values.put("score", 10000L);
         values.put("airport_code", airport_code);
         values.put("sql_date", sql_date);
 
-        // processor.buildPartialRow(kuduSchema, row, new MapRecord(schema, values), schema.getFieldNames(), true, lowercaseFields); // FIXED
+        processor.buildPartialRow(kuduSchema, row, new MapRecord(schema, values), schema.getFieldNames(), true, lowercaseFields, addHour, holder, defaultTimestampPatterns);
         return row;
     }
 

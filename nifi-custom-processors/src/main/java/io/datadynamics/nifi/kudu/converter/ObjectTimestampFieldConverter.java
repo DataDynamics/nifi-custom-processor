@@ -1,5 +1,6 @@
 package io.datadynamics.nifi.kudu.converter;
 
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.nifi.serialization.record.util.IllegalTypeConversionException;
 
 import java.sql.Timestamp;
@@ -23,17 +24,35 @@ public class ObjectTimestampFieldConverter implements FieldConverter<Object, Tim
         }
 
         if (field instanceof Timestamp) {
-            return (Timestamp) field;
+            if (addHour != 0) {
+                long number = ((Timestamp) field).getTime();
+                Date newDate = DateUtils.addMilliseconds(new Date(number), addHour * (60 * 1000) * 60);
+                return new Timestamp(newDate.getTime());
+            } else {
+                return (Timestamp) field;
+            }
         }
 
         if (field instanceof Date) {
-            final Date date = (Date) field;
-            return new Timestamp(date.getTime());
+            if (addHour != 0) {
+                final Date date = (Date) field;
+                Date newDate = DateUtils.addMilliseconds(date, addHour * (60 * 1000) * 60);
+                return new Timestamp(newDate.getTime());
+            } else {
+                final Date date = (Date) field;
+                return new Timestamp(date.getTime());
+            }
         }
 
         if (field instanceof Number) {
-            final Number number = (Number) field;
-            return new Timestamp(number.longValue());
+            if (addHour != 0) {
+                final Number number = (Number) field;
+                Date newDate = DateUtils.addMilliseconds(new Date(number.longValue()), addHour * (60 * 1000) * 60);
+                return new Timestamp(newDate.getTime());
+            } else {
+                final Number number = (Number) field;
+                return new Timestamp(number.longValue());
+            }
         }
 
         if (field instanceof String) {
@@ -56,7 +75,12 @@ public class ObjectTimestampFieldConverter implements FieldConverter<Object, Tim
                 // 파싱 에러가 발생하면 숫자로 다시 파싱을 시도한다.
                 try {
                     final long number = Long.parseLong(string);
-                    return new Timestamp(number);
+                    if (addHour != 0) {
+                        Date newDate = DateUtils.addMilliseconds(new Date(number), addHour * (60 * 1000) * 60);
+                        return new Timestamp(newDate.getTime());
+                    } else {
+                        return new Timestamp(number);
+                    }
                 } catch (final NumberFormatException e2) {
                     final String message = String.format("필드명 [%s] 값 [%s]을 Timestamp로 변환할 수 없습니다: %s", name, field, e2.getMessage());
                     throw new IllegalTypeConversionException(message);
