@@ -612,6 +612,7 @@ public class PutKudu extends AbstractKuduProcessor {
             rowErrors.forEach(rowError -> getLogger().error("Kudu에 저장할 수 없습니다. 에러: {}", rowError.toString()));
             FlowFile f = session.putAttribute(flowFile, RECORD_COUNT_ATTR, Integer.toString(count - rowErrors.size()));
             totalCount -= rowErrors.size(); // 카운터에 에러 ROW를 포함시키지 않는다.
+            session.adjustCounter("PutKudu Error Rows", rowErrors.size(), false);
             session.transfer(f, REL_FAILURE);
         } else {
             FlowFile f = session.putAttribute(flowFile, RECORD_COUNT_ATTR, String.valueOf(count));
@@ -625,8 +626,7 @@ public class PutKudu extends AbstractKuduProcessor {
             }
         }
 
-        // NiFi UI에 해당 지표로 건수를 표시한다.
-        session.adjustCounter("추가한 레코드수", totalCount, false);
+        session.adjustCounter("PutKudu Total Rows", totalCount, false);
     }
 
     private void logFailures(final List<RowError> pendingRowErrors, final Map<Operation, FlowFile> operationFlowFileMap) {
