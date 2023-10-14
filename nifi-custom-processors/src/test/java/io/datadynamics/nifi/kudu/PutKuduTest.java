@@ -63,11 +63,11 @@ public class PutKuduTest {
 
     private final java.sql.Date today = new java.sql.Date(System.currentTimeMillis());
 
-//    @BeforeEach
+    @BeforeEach
     public void setUp() {
-//        processor = new MockPutKudu();
-//        testRunner = TestRunners.newTestRunner(processor);
-//        setUpTestRunner(testRunner);
+        processor = new MockPutKudu();
+        testRunner = TestRunners.newTestRunner(processor);
+        setUpTestRunner(testRunner);
     }
 
     private void setUpTestRunner(TestRunner testRunner) {
@@ -87,7 +87,7 @@ public class PutKuduTest {
         testRunner.setProperty(PutKudu.ROW_LOGGING_COUNT, "10");
     }
 
-//    @AfterEach
+    @AfterEach
     public void close() {
         testRunner = null;
     }
@@ -111,13 +111,9 @@ public class PutKuduTest {
 
 
 
-//    @Test
+    @Test
     public void testWriteKuduWithDefaults() throws InitializationException {
-        MockPutKudu processor = new MockPutKudu();
-        TestRunner testRunner = TestRunners.newTestRunner(processor);
-        setUpTestRunner(testRunner);
-
-        createRecordReader(100);
+        createRecordReader(1);
 
         final String filename = "testWriteKudu-" + System.currentTimeMillis();
 

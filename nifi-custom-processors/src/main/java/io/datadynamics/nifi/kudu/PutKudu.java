@@ -39,7 +39,8 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.apache.nifi.expression.ExpressionLanguageScope.*;
+import static org.apache.nifi.expression.ExpressionLanguageScope.FLOWFILE_ATTRIBUTES;
+import static org.apache.nifi.expression.ExpressionLanguageScope.VARIABLE_REGISTRY;
 
 @SystemResourceConsideration(resource = SystemResource.MEMORY)
 @EventDriven
@@ -159,7 +160,6 @@ public class PutKudu extends AbstractKuduProcessor {
             .required(false)
             .defaultValue("0")
             .addValidator(StandardValidators.INTEGER_VALIDATOR)
-            .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
     protected static final PropertyDescriptor LOWERCASE_FIELD_NAMES = new Builder()
             .name("use-lower-case")
@@ -210,7 +210,6 @@ public class PutKudu extends AbstractKuduProcessor {
             .required(true)
             .defaultValue("1")
             .addValidator(StandardValidators.createLongValidator(1, 100000, true))
-            .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
     protected static final PropertyDescriptor MAX_ROW_COUNT_PER_BATCH = new Builder()
             .name("max-row-count-per-batch")
@@ -220,7 +219,6 @@ public class PutKudu extends AbstractKuduProcessor {
             .required(true)
             .defaultValue("100")
             .addValidator(StandardValidators.createLongValidator(1, 100000, true))
-            .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
     protected static final PropertyDescriptor IGNORE_NULL = new Builder()
             .name("ignore-null")
@@ -229,7 +227,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .defaultValue("false")
             .required(true)
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR)
-            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
     static final PropertyDescriptor FAILURE_STRATEGY = new Builder()
             .name("failure-strategy")
@@ -244,8 +242,8 @@ public class PutKudu extends AbstractKuduProcessor {
             .displayName("Timestamp 컬럼의 Timestamp Format(JSON 형식)")
             .description("각각의 Timestamp 컬럼별로 Timestamp Format을 별도로 지정할 수 있습니다. Timestamp Format은 microseconds까지만 지원합니다.")
             .required(false)
-            .addValidator(JsonValidator)
-            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();
     static final PropertyDescriptor DEFAULT_TIMESTAMP_PATTERN = new Builder()
             .name("default-timestamp-pattern")
@@ -254,7 +252,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .required(true)
             .defaultValue("yyyy-MM-dd HH:mm:ss.SSS")
             .addValidator(timestampValidator)
-            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
     static final PropertyDescriptor ROW_LOGGING_COUNT = new Builder()
             .name("row-logging-count")
@@ -263,7 +261,7 @@ public class PutKudu extends AbstractKuduProcessor {
             .required(true)
             .defaultValue("1000")
             .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
-            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .expressionLanguageSupported(VARIABLE_REGISTRY)
             .build();
 
     ///////////////////////////////////////////////
@@ -324,9 +322,9 @@ public class PutKudu extends AbstractKuduProcessor {
 
     @OnScheduled
     public void onScheduled(final ProcessContext context) throws LoginException {
-        batchSize = context.getProperty(MAX_ROW_COUNT_PER_BATCH).evaluateAttributeExpressions().asInteger();
-        ffbatch = context.getProperty(FLOWFILE_COUNT_PER_BATCH).evaluateAttributeExpressions().asInteger();
-        addHour = context.getProperty(ADD_HOUR).evaluateAttributeExpressions().asInteger();
+        batchSize = context.getProperty(MAX_ROW_COUNT_PER_BATCH).asInteger();
+        ffbatch = context.getProperty(FLOWFILE_COUNT_PER_BATCH).asInteger();
+        addHour = context.getProperty(ADD_HOUR).asInteger();
         flushMode = SessionConfiguration.FlushMode.valueOf(context.getProperty(FLUSH_MODE).getValue().toUpperCase());
         createKerberosUserAndOrKuduClient(context);
         supportsInsertIgnoreOp = supportsIgnoreOperations();
@@ -345,8 +343,8 @@ public class PutKudu extends AbstractKuduProcessor {
         }
 
         // Timestamp 컬럼을 위해서 Timestamp Format(Pattern)을 지정한 JSON을 로딩한다. 이 파라마터는 FlowFile Attribute를 지원한다.
-        String customTimestampPatterns = context.getProperty(CUSTOM_COLUMN_TIMESTAMP_PATTERNS).evaluateAttributeExpressions().getValue();
-        String defaultTimestampPatterns = context.getProperty(DEFAULT_TIMESTAMP_PATTERN).evaluateAttributeExpressions().getValue();
+        String customTimestampPatterns = context.getProperty(CUSTOM_COLUMN_TIMESTAMP_PATTERNS).getValue();
+        String defaultTimestampPatterns = context.getProperty(DEFAULT_TIMESTAMP_PATTERN).getValue();
         getLogger().info("지정한 Timestamp 패턴(포맷) JSON : \n{}", customTimestampPatterns);
         getLogger().info("기본 Timestamp 패턴(포맷) : {}", defaultTimestampPatterns);
 
@@ -460,6 +458,7 @@ public class PutKudu extends AbstractKuduProcessor {
                     }
                 }
 
+                long startTime = System.currentTimeMillis();
                 int rowCount = 0;
                 recordReaderLoop:
                 while (record != null) {
@@ -509,7 +508,7 @@ public class PutKudu extends AbstractKuduProcessor {
                         processedRecords.merge(flowFile, 1, Integer::sum);
 
                         if (rowLoggingCount > 0 && (rowCount % rowLoggingCount == 0)) {
-                            getLogger().info("FlowFile {}은 현재 {}개 ROW를 처리하고 있습니다.", flowFile, rowCount);
+                            getLogger().info("{}", String.format("FlowFile %s은 현재 %s개 ROW를 처리하고 있습니다. 처리 시간: %s", flowFile, rowCount, formatHumanReadableTime(System.currentTimeMillis() - startTime)));
                         }
                     }
 
@@ -517,7 +516,7 @@ public class PutKudu extends AbstractKuduProcessor {
                 }
 
                 if (rowLoggingCount > 0) {
-                    getLogger().info("FlowFile {}은 현재 {}개 ROW를 처리하였습니다.", flowFile, rowCount);
+                    getLogger().info("{}", String.format("FlowFile %s은 현재 %s개 ROW를 처리하였습니다. 완료 시간: %s", flowFile, rowCount, formatHumanReadableTime(System.currentTimeMillis() - startTime)));
                 }
             } catch (Exception ex) {
                 getLogger().error("FlowFile {}을 Kudu에 저장할 수 없습니다.", new Object[]{flowFile}, ex);
@@ -711,5 +710,27 @@ public class PutKudu extends AbstractKuduProcessor {
                 throw new ProcessException("Evaluated RecordPath " + recordPath.getPath() + " against Record to determine Kudu Operation Type but found invalid value: " + resultValue);
             }
         }
+    }
+
+    public static String formatHumanReadableTime(long diffLongTime) {
+        StringBuffer buf = new StringBuffer();
+        long hours = diffLongTime / (60 * 60 * 1000);
+        long rem = (diffLongTime % (60 * 60 * 1000));
+        long minutes = rem / (60 * 1000);
+        rem = rem % (60 * 1000);
+        long seconds = rem / 1000;
+
+        if (hours != 0) {
+            buf.append(hours);
+            buf.append("시간 ");
+        }
+        if (minutes != 0) {
+            buf.append(minutes);
+            buf.append("분 ");
+        }
+        // 차이가 없다면 0을 반환한다.
+        buf.append(seconds);
+        buf.append("초");
+        return buf.toString();
     }
 }
