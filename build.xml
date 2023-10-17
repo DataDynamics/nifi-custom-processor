@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="nar-deploy">
 
-    <property name="NIFI_EXT_DIR">${user.home}/projects/nifi/nifi-1.23.2/extensions</property>
+    <property name="NIFI_EXT_DIR">${user.home}/projects/nifi/nifi-1.23.1/extensions</property>
 
     <target name="DELETE-ALL-FILES-FROM-EXT-DIR">
         <echo message="Deleting All NARs From ${NIFI_EXT_DIR}"/>
