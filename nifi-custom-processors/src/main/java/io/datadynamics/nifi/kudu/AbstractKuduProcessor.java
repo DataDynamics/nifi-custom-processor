@@ -362,7 +362,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
                         break;
                     case UNIXTIME_MICROS:
                         Optional<String> optionalPattern = Optional.of(finalTimestampPattern);
-                        if (getLogger().isDebugEnaled()) getLogger().debug("{}", String.format("[Timestamp] Record Field Name: %s ==> %s, Date Format: %s, Add Hour: %s", recordFieldName, colType, finalTimestampPattern, addHour));
+                        if (getLogger().isDebugEnabled()) getLogger().debug("{}", String.format("[Timestamp] Record Field Name: %s ==> %s, Date Format: %s, Add Hour: %s", recordFieldName, colType, finalTimestampPattern, addHour));
                         final Timestamp timestamp = TIMESTAMP_FIELD_CONVERTER.convertField(value, optionalPattern, recordFieldName, addHour, finalTimestampPattern);
                         row.addTimestamp(columnIndex, timestamp);
                         break;
