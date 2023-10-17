@@ -255,15 +255,6 @@ public class PutKudu extends AbstractKuduProcessor {
                     "}\n" +
                     "지원하는 Type: " + Arrays.stream(TimestampType.values()).map(Enum::toString).collect(Collectors.joining(", ")))
             .required(false)
-            .defaultValue("{\n" +
-                    "  \"formats\": [\n" +
-                    "    {\n" +
-                    "      \"column-name\": \"COL_TIMESTAMP\",\n" +
-                    "      \"timestamp-pattern\": \"yyyy-MM-dd HH:mm:ss\",\n" +
-                    "      \"type\": \"TIMESTAMP_MILLIS\"\n" +
-                    "    }\n" +
-                    "  ]\n" +
-                    "}\n")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(FLOWFILE_ATTRIBUTES)
             .build();

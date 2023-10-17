@@ -341,7 +341,7 @@ public abstract class AbstractKuduProcessor extends AbstractProcessor {
 
                 // JSON 형식의 컬럼별 Timestamp Format을 지정하지 않으면 기본 포맷을 사용하거나 Avro의 Timestamp Format을 사용한다.
                 String defaultPattern = defaultTimestampPatterns == null ? fieldDataType.map(DataType::getFormat).orElse(null) : defaultTimestampPatterns;
-                String finalTimestampPattern = (holder == null ? defaultPattern : holder.getPattern(recordFieldName));
+                String finalTimestampPattern = (holder == null ? defaultPattern : (StringUtils.isEmpty(holder.getPattern(recordFieldName)) ? defaultPattern : holder.getPattern(recordFieldName)));
                 if (getLogger().isDebugEnabled()) getLogger().debug("{}", String.format("Record Field Name: {} ==> {}, Date Format: {}", recordFieldName, colType, finalTimestampPattern));
 
                 switch (colType) {
