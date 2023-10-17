@@ -3,7 +3,9 @@ package io.datadynamics.nifi.kudu;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.kudu.shaded.com.google.common.base.Joiner;
 
-import java.io.*;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.sql.Timestamp;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -45,11 +47,11 @@ public class TestDataGenerator {
         return toString(formatter, timestamp);
     }
 
-    public static  String toString(DateTimeFormatter formatter, Timestamp timestamp) {
+    public static String toString(DateTimeFormatter formatter, Timestamp timestamp) {
         return formatter.format(timestamp.toLocalDateTime());
     }
 
-    public static  Timestamp randomTimestamp() {
+    public static Timestamp randomTimestamp() {
         long offset = Timestamp.valueOf("2012-01-01 00:00:00").getTime();
         long end = Timestamp.valueOf("2013-01-01 00:00:00").getTime();
         long diff = end - offset + 1;

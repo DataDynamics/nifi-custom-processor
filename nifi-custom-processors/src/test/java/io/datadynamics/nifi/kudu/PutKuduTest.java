@@ -29,7 +29,6 @@ import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import org.apache.nifi.util.Tuple;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -56,25 +55,17 @@ import static org.mockito.Mockito.when;
 
 public class PutKuduTest {
 
-    enum ResultCode {
-        OK,
-        FAIL,
-        EXCEPTION
-    }
-
     public static final String DEFAULT_TABLE_NAME = "Nifi-Kudu-Table";
     public static final String DEFAULT_MASTERS = "testLocalHost:7051";
     public static final String TABLE_SCHEMA = "id,stringVal,num32Val,doubleVal,decimalVal,dateVal";
-
     public static final String DATE_FIELD = "created";
     public static final String ISO_8601_YEAR_MONTH_DAY = "2000-01-01";
     public static final String ISO_8601_YEAR_MONTH_DAY_PATTERN = "yyyy-MM-dd";
     public static final String ISO_8601_TIMESTAMP_PATTERN = "yyyy-MM-dd HH:mm:ss.SSS";
-
     public static final String TIMESTAMP_FIELD = "updated";
     public static final String TIMESTAMP_STANDARD = "2000-01-01 12:00:00";
     public static final String TIMESTAMP_MICROSECONDS = "2000-01-01 12:00:00.123456";
-
+    private final java.sql.Date today = new java.sql.Date(System.currentTimeMillis());
     String json = "{\n" +
             "  \"formats\": [\n" +
             "    {\n" +
@@ -122,7 +113,11 @@ public class PutKuduTest {
 
     private MockRecordParser readerFactory;
 
-    private final java.sql.Date today = new java.sql.Date(System.currentTimeMillis());
+    private static <T> void stubSlices(OngoingStubbing<T> stubbing, List<T> slices) {
+        for (T slice : slices) {
+            stubbing = stubbing.thenReturn(slice);
+        }
+    }
 
     @BeforeEach
     public void setUp() {
@@ -783,12 +778,6 @@ public class PutKuduTest {
         return responses;
     }
 
-    private static <T> void stubSlices(OngoingStubbing<T> stubbing, List<T> slices) {
-        for (T slice : slices) {
-            stubbing = stubbing.thenReturn(slice);
-        }
-    }
-
     private void testKuduPartialFailure(SessionConfiguration.FlushMode flushMode, int batchSize) throws Exception {
         final int numFlowFiles = 4;
         final int numRecordsPerFlowFile = 3;
@@ -921,6 +910,12 @@ public class PutKuduTest {
     @Disabled
     public void testKuduPartialFailuresOnManualFlush() throws Exception {
         testKuduPartialFailure(SessionConfiguration.FlushMode.MANUAL_FLUSH);
+    }
+
+    enum ResultCode {
+        OK,
+        FAIL,
+        EXCEPTION
     }
 
     public static class MockKerberosCredentialsService extends AbstractControllerService implements KerberosCredentialsService {
