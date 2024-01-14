@@ -81,7 +81,7 @@ public class MergeParquet extends AbstractProcessor {
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
             .name("fail")
-            .description("Parquet 파일의 merge를 처리할 수 없는 경우")
+            .description("Parquet 파일을 Merge할 수 없는 경우")
             .build();
 
     ///////////////////////////////////////////////
@@ -91,7 +91,7 @@ public class MergeParquet extends AbstractProcessor {
     public static final PropertyDescriptor PROP_HADOOP_CONFIGURATION_RESOURCES = new PropertyDescriptor.Builder()
             .name("Hadoop Configuration 설정 파일")
             .description("core-site.xml hdfs-site.xml 파일의 절대 경로를 comma separated 형식으로 지정합니다. Cloudera Manager > Clusters > [CLUSTER] > HDFS > Download Client Configution 메뉴를 통해서 다운로드할 수 있습니다." +
-                    "NiFi 노드가 HDFS Gateway로 설정이 되어 있다면 /etc에 해당 파일이 있으므로 경로를 지정하도록 합니다.")
+                    "NiFi 노드가 HDFS Gateway로 설정이 되어 있다면 /etc/hadoop/conf.cloudera.hdfs 디렉토리에 해당 파일이 있으므로 경로를 지정하도록 합니다.")
             .required(false)
             .identifiesExternalResource(ResourceCardinality.MULTIPLE, ResourceType.FILE)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
