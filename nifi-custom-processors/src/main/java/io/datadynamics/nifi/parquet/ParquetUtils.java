@@ -61,14 +61,18 @@ public class ParquetUtils {
      * @param fs     FileSystem
      */
     public static void deleteAll(ComponentLog logger, List<String> files, FileSystem fs) {
-        logger.info("HDFS의 파일을 삭제합니다. 삭제할 파일의 개수는 {}개입니다.", files.size());
-        for (String file : files) {
-            try {
-                fs.delete(new Path(file));
-                logger.info("HDFS에서 파일을 삭제했습니다. 삭제한 파일 : {}", file);
-            } catch (Exception e) {
-                logger.warn("HDFS에서 파일을 삭제할 수 없습니다. 삭제할 파일 : {}", file, e);
+        if (files.size() > 0) {
+            logger.info("HDFS의 파일을 삭제합니다. 삭제할 파일의 개수는 {}개입니다.", files.size());
+            for (String file : files) {
+                try {
+                    fs.delete(new Path(file));
+                    logger.info("HDFS에서 파일을 삭제했습니다. 삭제한 파일 : {}", file);
+                } catch (Exception e) {
+                    logger.warn("HDFS에서 파일을 삭제할 수 없습니다. 삭제할 파일 : {}", file, e);
+                }
             }
+        } else {
+            logger.info("HDFS에서 삭제할 파일이 없습니다.");
         }
     }
 
@@ -85,6 +89,7 @@ public class ParquetUtils {
      */
     public static void merge(FileSystem fs, String sourcePath, String targetPath, String targetFilename, ComponentLog logger, List<String> filesToDelete) throws IOException {
 
+        // Avro Schema
         Schema schema = null;
 
         // 소스 경로
@@ -179,10 +184,14 @@ public class ParquetUtils {
      * @throws IOException Writer를 생성할 수 없는 경우
      */
     public static ParquetWriter getParquetWriter(Schema schema, Configuration configuration, Path path, ComponentLog logger) throws IOException {
-        String[] timestampInt96Columns = getTimestampInt96Columns(schema);
-        logger.info("Parquet 파일의 INT96 컬럼 : {}", Joiner.on(", ").join(timestampInt96Columns));
         Configuration conf = new Configuration(configuration);
+
+        // Int96 형식의 Timestamp 컬럼을 별도 처리하지 않으면 FIXED, Byte Array로 저장한다.
+        // 따라서 Parquet Writer에 Int96 형식의 Timestamp 컬럼명을 지정하여 Timestamp 형식으로 처리하도록 해야 한다.
+        String[] timestampInt96Columns = getTimestampInt96Columns(schema);
+        logger.info("Parquet 파일의 INT96 Timestamp 컬럼명 : {}", Joiner.on(", ").join(timestampInt96Columns));
         if (timestampInt96Columns.length > 0) conf.setStrings(WRITE_FIXED_AS_INT96, timestampInt96Columns);
+
         ParquetWriter<Object> writer = AvroParquetWriter.builder(path)
                 .withSchema(schema)
                 .withCompressionCodec(CompressionCodecName.SNAPPY)
