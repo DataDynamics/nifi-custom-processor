@@ -59,8 +59,11 @@ import static org.apache.nifi.expression.ExpressionLanguageScope.FLOWFILE_ATTRIB
 @Tags({"custom", "hadoop", "HDFS", "merge", "parquet", "source", "filesystem"})
 @CapabilityDescription("HDFS에서 Parquet 파일을 로딩하여 Merge 후에 저장한다. 이 프로세서는 Merge후 원본 파일을 삭제한다.")
 @WritesAttributes({
-        @WritesAttribute(attribute = "filename", description = "생성한 Parquet 파일의 파일명"),
-        @WritesAttribute(attribute = "path", description = "Parquet 파일을 저장한 디렉토리")})
+        @WritesAttribute(attribute = "merge.hdfs.source.dir", description = "원본 Parquet 파일이 있는 디렉토리(HDFS)"),
+        @WritesAttribute(attribute = "merge.hdfs.source.files.count", description = "원본 Parquet 파일의 개수"),
+        @WritesAttribute(attribute = "merge.hdfs.target.dir", description = "Merge한 Parquet 파일을 저장한 디렉토리(HDFS)"),
+        @WritesAttribute(attribute = "merge.target.filename", description = "Merge한 Parquet 파일의 파일명(HDFS)"),
+        @WritesAttribute(attribute = "merge.target.qualifiedPath", description = "Merge한 Parquet 파일의 절대 경로(HDFS)")})
 @Restricted(restrictions = {
         @Restriction(requiredPermission = RequiredPermission.READ_DISTRIBUTED_FILESYSTEM, explanation = "HDFS 또는 로컬 파일 시스템의 읽기 접근 권한이 필요합니다."),
         @Restriction(requiredPermission = RequiredPermission.WRITE_DISTRIBUTED_FILESYSTEM, explanation = "HDFS 또는 로컬 파일 시스템의 쓰기 접근 권한이 필요합니다.")
