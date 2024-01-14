@@ -1,111 +1,20 @@
 {
-  "namespace": "io.datadynamics.template.avro.model.types2",
+  "namespace": "nifi",
   "type": "record",
-  "name": "DataTypes2",
+  "name": "DataTypes",
   "fields": [
-    {
-      "name": "TypeBoolean",
-      "type": [
-        "null",
-        "boolean"
-      ]
-    },
-    {
-      "name": "TypeInt",
-      "type": [
-        "null",
-        "int"
-      ]
-    },
-    {
-      "name": "TypeLong",
-      "type": [
-        "null",
-        "long"
-      ]
-    },
-    {
-      "name": "TypeFloat",
-      "type": [
-        "null",
-        "float"
-      ]
-    },
-    {
-      "name": "TypeDouble",
-      "type": [
-        "null",
-        "double"
-      ]
-    },
-    {
-      "name": "TypeString",
-      "type": [
-        "null",
-        "string"
-      ]
-    },
-    {
-      "name": "TypeBytesDecimal",
-      "type": [
-        "null",
-        {
-          "type": "bytes",
-          "logicalType": "decimal",
-          "precision": 6,
-          "scale": 2
-        }
-      ]
-    },
-    {
-      "name": "TypeDate",
-      "type": [
-        "null",
-        {
-          "type": "int",
-          "logicalType": "date"
-        }
-      ]
-    },
-    {
-      "name": "TypeTimeInMillis",
-      "type": [
-        "null",
-        {
-          "type": "int",
-          "logicalType": "time-millis"
-        }
-      ]
-    },
-    {
-      "name": "TypeTimeInMicros",
-      "type": [
-        "null",
-        {
-          "type": "long",
-          "logicalType": "time-micros"
-        }
-      ]
-    },
-    {
-      "name": "TypeTimestampInMillis",
-      "type": [
-        "null",
-        {
-          "type": "long",
-          "logicalType": "timestamp-millis"
-        }
-      ]
-    },
-    {
-      "name": "TypeStringTimestampInMillis",
-      "type": [
-        "null",
-        {
-          "type": "string",
-          "logicalType": "timestamp-millis"
-        }
-      ]
+    {"name": "TypeBoolean", "type": ["null", "boolean"]},
+    {"name": "TypeInt", "type": ["null", "int"]},
+    {"name": "TypeLong", "type": ["null", "long"]},
+    {"name": "TypeFloat", "type": ["null", "float"]},
+    {"name": "TypeDouble", "type": ["null", "double"]},
+    {"name": "TypeString", "type": ["null", "string"]},
+    {"name": "TypeBytesDecimal", "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 6, "scale": 2}]},
+    {"name": "TypeDate", "type": ["null", {"type": "int", "logicalType": "date"}]},
+    {"name": "TypeTimeInMillis", "type": ["null", {"type": "int", "logicalType": "time-millis"}]},
+    {"name": "TypeTimeInMicros", "type": ["null", {"type": "long", "logicalType": "time-micros"}]},
+    {"name": "TypeTimestampInMillis", "type": ["null", {"type": "long", "logicalType": "timestamp-millis"}]},
+    {"name": "TypeStringTimestampInMillis", "type": ["null", {"type": "string", "logicalType": "timestamp-millis"}]
     }
   ]
 }

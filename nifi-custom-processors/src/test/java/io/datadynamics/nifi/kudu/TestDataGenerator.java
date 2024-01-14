@@ -13,6 +13,7 @@ import java.util.List;
 
 public class TestDataGenerator {
     public static void main(String[] args) throws IOException {
+        System.out.println(System.currentTimeMillis());
         DateTimeFormatter date = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         DateTimeFormatter timestamp1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         DateTimeFormatter timestamp2 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
