@@ -8,14 +8,10 @@ import org.apache.nifi.security.krb.KerberosUser;
 public class HdfsResources {
     private final Configuration configuration;
     private final FileSystem fileSystem;
-    private final UserGroupInformation userGroupInformation;
-    private final KerberosUser kerberosUser;
 
-    public HdfsResources(Configuration configuration, FileSystem fileSystem, UserGroupInformation userGroupInformation, KerberosUser kerberosUser) {
+    public HdfsResources(Configuration configuration, FileSystem fileSystem) {
         this.configuration = configuration;
         this.fileSystem = fileSystem;
-        this.userGroupInformation = userGroupInformation;
-        this.kerberosUser = kerberosUser;
     }
 
     public Configuration getConfiguration() {
@@ -26,11 +22,4 @@ public class HdfsResources {
         return fileSystem;
     }
 
-    public UserGroupInformation getUserGroupInformation() {
-        return userGroupInformation;
-    }
-
-    public KerberosUser getKerberosUser() {
-        return kerberosUser;
-    }
 }

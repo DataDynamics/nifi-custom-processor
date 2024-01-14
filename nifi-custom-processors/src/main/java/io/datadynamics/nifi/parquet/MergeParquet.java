@@ -140,7 +140,7 @@ public class MergeParquet extends AbstractProcessor {
 
     private final AtomicReference<HdfsResources> hdfsResources = new AtomicReference<>();
 
-    private static final HdfsResources EMPTY_HDFS_RESOURCES = new HdfsResources(null, null, null, null);
+    private static final HdfsResources EMPTY_HDFS_RESOURCES = new HdfsResources(null, null);
 
     ///////////////////////////////////////////////
     // Method
@@ -285,7 +285,7 @@ public class MergeParquet extends AbstractProcessor {
         final Path workingDir = fs.getWorkingDirectory();
         getLogger().info("HDFS를 초기화할 수 없습니다 --> working dir: {} default block size: {} default replication: {} config: {}", new Object[]{workingDir, fs.getDefaultBlockSize(workingDir), fs.getDefaultReplication(workingDir), config.toString()});
 
-        return new HdfsResources(config, fs, null, null);
+        return new HdfsResources(config, fs);
     }
 
     /**
